@@ -1,10 +1,19 @@
 import { useSession } from "next-auth/react";
-import { authOptions } from "../../lib/config/authOptions";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import { authOptions } from "../../../lib/config/authOptions";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest, context: { params: Promise<{ type: string , id : string }> }) {
+    const { type , id } = await context.params
+    if (!type || type.trim().length === 0 || !id || id.trim().length === 0) {
+        return NextResponse.json({
+            success: false,
+            error: "Params not found!"
+        }, { status: 401 })
+    }
+    console.log("params :", type)
+
     const session = await getServerSession(authOptions);
     if (!session) {
         return NextResponse.json({
@@ -14,18 +23,10 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-        const { query } = await request.json();
-        if (!query || query.trim().length === 0) {
-            console.log("hello")
-            return NextResponse.json({
-                success: false,
-                error: "Query not found"
-            }, { status: 401 })
-        }
-
-        const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search?query=${encodeURIComponent(query.trim())}`)
+        const res = await axios.get(`${process.env.JIO_SAVAAN}/api/${type}/${id}`)
         const data = res.data;
         console.log((data))
+        console.log("data length :", data.data.length)
         console.log(typeof (data))
 
         if (!data) {
@@ -40,10 +41,10 @@ export async function POST(request: NextRequest) {
             data: data
         })
     } catch (error) {
-        
+        console.log("Error in /api/search :", error);
         return NextResponse.json({
-            success:false,
-            error:"internal server error"
+            success: false,
+            error: "internal server error"
         })
     }
 }
