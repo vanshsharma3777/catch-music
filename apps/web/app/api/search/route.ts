@@ -3,6 +3,9 @@ import { authOptions } from "../../lib/config/authOptions";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
+import { db, singer, song, users, } from "@repo/db";
+import { eq } from "drizzle-orm";
+import { imageConfigDefault } from "next/dist/shared/lib/image-config";
 
 export async function POST(request: NextRequest) {
     const session = await getServerSession(authOptions);
@@ -14,9 +17,25 @@ export async function POST(request: NextRequest) {
     }
 
     try {
+        const email = session.user?.email;
+        if (!email) {
+            return NextResponse.json({
+                success: false,
+                error: "User email not found! Login again"
+            }, { status: 400 })
+        }
+
+        const existingUser = await db.select().from(users).where(eq(users.email, email))
+        if (existingUser.length === 0) {
+            console.log("User not found")
+            return NextResponse.json({
+                success: false,
+                error: "User email not found! Login again"
+            }, { status: 400 })
+        }
+
         const { query } = await request.json();
         if (!query || query.trim().length === 0) {
-            console.log("hello")
             return NextResponse.json({
                 success: false,
                 error: "Query not found"
@@ -25,9 +44,7 @@ export async function POST(request: NextRequest) {
 
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search?query=${encodeURIComponent(query.trim())}`)
         const data = res.data;
-        console.log((data))
-        console.log(typeof (data))
-
+        
         if (!data) {
             return NextResponse.json({
                 success: false,
@@ -42,8 +59,8 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         
         return NextResponse.json({
-            success:false,
-            error:"internal server error"
+            success: false,
+            error: "internal server error"
         })
     }
 }

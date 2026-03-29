@@ -3,6 +3,9 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { authOptions } from "../../../lib/config/authOptions";
+import { db, users } from "@repo/db";
+import { eq } from "drizzle-orm";
+import { storeToDb } from "@repo/queue";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ type: string }> }) {
     const { type } = await context.params
@@ -23,32 +26,54 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
     }
 
     try {
-        const { query, limit, start } = await request.json();
-        if (!query || query.trim().length === 0 || isNaN(limit) || isNaN(start)) {
+        const email = session.user?.email;
+        if (!email) {
+            return NextResponse.json({
+                success: false,
+                error: "User email not found! Login again"
+            }, { status: 400 })
+        }
+
+        const existingUser = await db.select().from(users).where(eq(users.email, email))
+        if (existingUser.length === 0) {
+            console.log("User not found")
+            return NextResponse.json({
+                success: false,
+                error: "User email not found! Login again"
+            }, { status: 400 })
+        }
+
+        const { query, limit } = await request.json();
+        if (!query || query.trim().length === 0 || isNaN(limit)) {
             return NextResponse.json({
                 success: false,
                 error: "Query not found"
             }, { status: 401 })
         }
 
-        const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}&start${start}`)
+        const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
         const data = res.data;
         console.log((data))
         console.log("data length :", data.data.results.length)
         console.log(typeof (data))
 
-        if (!data) {
-            return NextResponse.json({
-                success: false,
-                error: "Data not found"
-            }, { status: 404 })
+        if (type === "artists") {
+            const responseId = data.data.results[0].id
+            console.log("response id :", responseId)
+            // call worker so that it can store the data
+            async function storeInDb() {
+                console.log("storeindb function working")
+                const result = await storeToDb.add('storeToDb', { responseId });
+                console.log("result", result)
+            }
+            storeInDb()
         }
 
         return NextResponse.json({
             success: true,
-            data: data
+            data: data,
         })
-    } catch (error) {
+    } catch (error: any) {
         console.log("Error in /api/search :", error);
         return NextResponse.json({
             success: false,

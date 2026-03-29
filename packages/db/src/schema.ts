@@ -16,6 +16,7 @@ import { drizzle } from "drizzle-orm/postgres-js"
 import type { AdapterAccount } from "next-auth/adapters";
 import { time } from "drizzle-orm/mysql-core";
 import { json } from "drizzle-orm/gel-core";
+import { textSpanIsEmpty } from "typescript";
 const connectionString = process.env.DATABASE_URL!
 const pool = postgres(connectionString, { max: 1 })
 
@@ -108,14 +109,15 @@ export const authenticators = pgTable(
 
 export const song = pgTable("song", {
   id: uuid("id").defaultRandom().primaryKey(),
+  songId:text("songId").notNull(),
   name: text("name").notNull(),
   type: text("type").notNull(),
   duration: integer("duration").notNull(),
   year: integer("year").notNull(),
-  playCount: integer("playCount").notNull(),
-  releaseDate: timestamp("release_date", { withTimezone: true }),
+  playCount: integer("playCount"),
+  releaseDate: text("release_data"),
   language: text("language").notNull(),
-  lyrics: text("lyrics").notNull(),
+  lyrics: text("lyrics"),
   label: text("label").notNull(),
   url: text("url").notNull(),
   hasLyrics: boolean("has_lyrics").default(false),
@@ -128,6 +130,7 @@ export const song = pgTable("song", {
 
 export const singer = pgTable("singer", {
   id: uuid("id").defaultRandom().primaryKey(),
+  singerId:text("singerId").notNull(),
   name: text("name").notNull(),
   imageConfig: jsonb("image_config").$type<{
     quality: string,
@@ -143,35 +146,36 @@ export const downloadUrl = pgTable("download_url", {
     url: string
   }[]>(),
 
-  songId: uuid("song_id").references(() => song.id)
+  songId: text("song_id").references(() => song.id)
 })
 
 export const imageUrl = pgTable("image_url", {
   id: uuid("id").defaultRandom().primaryKey(),
-  iamgeConfig: jsonb("image_config").$type<{
+  imageConfig: jsonb("image_config").$type<{
     quality: string,
     url: string
   }[]>(),
 
-  songId: uuid("song_id").references(() => song.id)
+  songId: text("song_id").references(() => song.id)
 
 })
 
 export const album = pgTable("album", {
   id: uuid("id").defaultRandom().primaryKey(),
+  albumId:text("albumId").notNull(),
   url: text("url").notNull(),
   name: text("name").notNull()
 })
 
 export const songSinger = pgTable("song_singer", {
   id: uuid("id").defaultRandom().primaryKey(),
-
-  songId: uuid("song_id").references(() => song.id),
-  singerId: uuid("singer_id").references(() => singer.id)
+  songId: text("song_id").references(() => song.id),
+  singerId: text("singer_id").references(() => singer.id)
 
 })
 export const playlist = pgTable("playlist", {
   id: uuid("id").defaultRandom().primaryKey(),
+  playlistId:text("playlistId").notNull(),
   name: text("name").notNull(),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
@@ -186,8 +190,8 @@ export const playlistSong = pgTable("playlist_song", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
 
-  playListId: uuid("playlist_id").references(() => playlist.id),
-  songId: uuid("song_id").references(() => song.id)
+  playListId: text("playlist_id").references(() => playlist.id),
+  songId: text("song_id").references(() => song.id)
 
 
 })
@@ -196,7 +200,7 @@ export const likedSong = pgTable("liked_song", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(),
 
-  songId: uuid("song_id").references(() => song.id),
+  songId: text("song_id").references(() => song.id),
   userId: text("user_id").references(() => users.id)
 
 })

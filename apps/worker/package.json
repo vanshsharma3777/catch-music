@@ -1,0 +1,23 @@
+{
+  "name": "worker",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "PORT=3001 bun src/index.ts",
+    "start": "bun src/index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@repo/db": "workspace:*",
+    "@repo/queue": "workspace:*",
+    "@types/axios": "^0.14.4",
+    "axios": "^1.14.0",
+    "bullmq": "^5.71.1"
+  }
+}
