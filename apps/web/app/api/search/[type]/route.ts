@@ -60,9 +60,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
         if (type === "artists") {
             const responseId = data.data.results[0].id
             console.log("response id :", responseId)
-            // call worker so that it can store the data
             async function storeInDb() {
                 console.log("storeindb function working")
+                
                 const result = await storeToDb.add('storeToDb', { responseId });
                 console.log("result", result)
             }

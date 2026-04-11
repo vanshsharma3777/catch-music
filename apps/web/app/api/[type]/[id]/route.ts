@@ -41,7 +41,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
                 error: "User email not found! Login again"
             }, { status: 400 })
         }
-
+        console.log(`${process.env.JIO_SAVAAN}/api/${type}/${id}?songCount=3`)
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/${type}/${id}`)
         const data = res.data;
         console.log((data))
