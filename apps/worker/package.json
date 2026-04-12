@@ -16,6 +16,7 @@
   "dependencies": {
     "@repo/db": "workspace:*",
     "@repo/queue": "workspace:*",
+    "drizzle-orm": "^0.45.1",
     "@types/axios": "^0.14.4",
     "axios": "^1.14.0",
     "bullmq": "^5.71.1",

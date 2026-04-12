@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
                 error: "Query not found"
             }, { status: 401 })
         }
-
+        console.log("came in /search/type")
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
         const data = res.data;
         console.log((data))
@@ -64,14 +64,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
                 console.log("storeindb function working")
                 
                 const result = await storeToDb.add('storeToDb', { responseId });
-                console.log("result", result)
+                console.log("ran worker store to db ", )
             }
             storeInDb()
         }
 
         return NextResponse.json({
             success: true,
-            data: data,
+            data: data.data.results[0],
         })
     } catch (error: any) {
         console.log("Error in /api/search :", error);
