@@ -1,7 +1,7 @@
 import { db, downloadUrl, imageUrl, singer, song } from '@repo/db'
 import axios from 'axios'
 import { Worker } from 'bullmq'
-import { connection, downloadSongs } from '@repo/queue'
+import { connection } from '@repo/queue'
 import { eq } from 'drizzle-orm'
 
 export const storeInDb = new Worker(
@@ -107,10 +107,7 @@ export const storeInDb = new Worker(
                 }
                 return result;
             }
-            // start another worker to download these songs
-            console.log("starting download songs worker")
-            await downloadSongs.add('downloadSongs', { downloadSongsUrls: JSON.parse(JSON.stringify(downloadSongsUrls)) });
-
+           
         } catch (error: any) {
             console.log("internal server error in storeToDb worker")
             console.log("err", error.message)

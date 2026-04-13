@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { playOfflineSong } from "../lib/playOfflineMusic";
 import { downloadSong } from "../lib/downloadSongs";
+import { downloadUrl } from "@repo/db";
 
 
 export default function song() {
@@ -27,7 +28,8 @@ export default function song() {
                 const downloadUrls = responses.flatMap(r => r.downloadUrlOfAllSongs)
                 setAllSongs(songs)
                 setAllDownloadUrl(downloadUrls)
-                if (songs.length > 0) {
+
+                if (songs.length > 0 && downloadUrls.length > 0) {
                     clearInterval(interval)
                     console.log("Stopped polling")
                 }
@@ -39,15 +41,15 @@ export default function song() {
     }, [])
 
     useEffect(() => {
-        if (allDownloadUrl.length === 0) {
-            console.log("download url length 0")
+        if (allDownloadUrl.length === 0 || allSongs.length === 0) {
+            console.log("download url length empty")
             return
         }
         console.log("download url length not 0")
         const songsToDownload = allDownloadUrl.map((song: any) => {
             const songsMatched = allSongs.find((s) => s.songId === song.songId)
 
-            if (songsMatched.length === 0) return null
+            if (!songsMatched) return null
 
             return {
                 songId: songsMatched.songId,
@@ -58,9 +60,9 @@ export default function song() {
                 duration: songsMatched.duration,
                 label: songsMatched.label
             }
-        })
+        }).filter(Boolean)
         downloadSong(songsToDownload)
-    }, [allDownloadUrl])
+    }, [])
     return (
         <div>
             <div>

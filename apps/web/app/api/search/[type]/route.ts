@@ -6,6 +6,8 @@ import { authOptions } from "../../../lib/config/authOptions";
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { storeToDb } from "@repo/queue";
+import { storeArtists } from "../../../lib/storeArtists";
+import { storeSongs } from "../../../lib/storeSongs";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ type: string }> }) {
     const { type } = await context.params
@@ -58,15 +60,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
         console.log(typeof (data))
 
         if (type === "artists") {
-            const responseId = data.data.results[0].id
-            console.log("response id :", responseId)
-            async function storeInDb() {
-                console.log("storeindb function working")
-                
-                const result = await storeToDb.add('storeToDb', { responseId });
-                console.log("ran worker store to db ", )
-            }
-            storeInDb()
+            storeArtists(data.data.results[0].id)
+        } else if (type === "songs") {
+            const finalSongs = data.data.results
+            console.log("fial songs" , finalSongs)
+            storeSongs(finalSongs)
+            return NextResponse.json({
+                success: true,
+                data: data.data.results,
+            })
         }
 
         return NextResponse.json({
