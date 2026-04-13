@@ -3,7 +3,6 @@ import { NextResponse } from "next/server"
 import { db, downloadUrl, song } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { authOptions } from "../../../lib/config/authOptions";
-import { downloadSongs } from "@repo/queue";
 
 export async function GET( request: Request, { params }: { params: { singersId: string } }) {
     const {singersId}= await params
@@ -34,7 +33,7 @@ export async function GET( request: Request, { params }: { params: { singersId: 
     const downloadUrlOfAllSongs = await Promise.all(
         songs.map(async (song)=>{
         const downloadUrls= await db.select().from(downloadUrl).where(eq(downloadUrl.songId , song.songId))
-        return downloadUrls
+        return downloadUrls[0]
     })
     )
     console.log("downloadUrlOfAllSongs " , downloadUrlOfAllSongs )

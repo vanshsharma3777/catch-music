@@ -59,6 +59,11 @@ self.addEventListener("message", async (event) => {
 
     store.put({
       songId: song.songId,
+      songName: song.songName,
+      singerId : song.singerId,
+      image : song.image,
+      duration:song.duration,
+      label: song.label,
       blob
     })
 
