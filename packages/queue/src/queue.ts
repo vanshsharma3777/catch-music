@@ -7,3 +7,6 @@ export const storeToDb = new Queue("storeToDb", {
 export const storeSongsToDb = new Queue("storeSongsToDb", {
   connection
 })
+export const storeAlbumsToDb = new Queue("storeAlbumsToDb", {
+  connection
+})

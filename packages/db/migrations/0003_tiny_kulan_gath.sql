@@ -1,0 +1,1 @@
+ALTER TABLE "song" RENAME COLUMN "release_data" TO "release_date";

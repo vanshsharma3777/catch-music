@@ -114,8 +114,8 @@ export const song = pgTable("song", {
   type: text("type").notNull(),
   duration: integer("duration").notNull(),
   year: integer("year").notNull(),
-  playCount: integer("playCount"),
-  releaseDate: text("release_data"),
+  playCount: text("playCount"),
+  releaseDate: integer("release_date"),
   language: text("language").notNull(),
   lyrics: text("lyrics"),
   label: text("label").notNull(),
@@ -125,7 +125,7 @@ export const song = pgTable("song", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 
-  albumId: uuid("album_id").references(() => album.id),
+  albumId: text("album_id").references(() => album.albumId),
   singerId: text("singer_id").references(() => singer.singerId)
 })
 
@@ -162,10 +162,12 @@ export const imageUrl = pgTable("image_url", {
 })
 
 export const album = pgTable("album", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  albumId:text("albumId").notNull().unique(),
+  id: uuid("id").defaultRandom(),
+  albumId:text("albumId").notNull().primaryKey().unique(),
   url: text("url").notNull(),
-  name: text("name").notNull()
+  name: text("name").notNull(),
+  year: integer("year"),
+  playCount: integer("play_count")
 })
 
 export const songSinger = pgTable("song_singer", {

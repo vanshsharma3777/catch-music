@@ -1,0 +1,1 @@
+ALTER TABLE "song" ALTER COLUMN "playCount" SET DATA TYPE text;

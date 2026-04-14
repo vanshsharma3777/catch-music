@@ -1,0 +1,1 @@
+ALTER TABLE "song" ALTER COLUMN "release_date" SET DATA TYPE integer;

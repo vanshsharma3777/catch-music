@@ -8,6 +8,48 @@
       "when": 1775999734767,
       "tag": "0000_strange_blindfold",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776172736530,
+      "tag": "0001_fat_kitty_pryde",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776175037520,
+      "tag": "0002_rainy_captain_universe",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776176238771,
+      "tag": "0003_tiny_kulan_gath",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776176675318,
+      "tag": "0004_wet_peter_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1776176922139,
+      "tag": "0005_late_siren",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776177447407,
+      "tag": "0006_motionless_lyja",
+      "breakpoints": true
     }
   ]
 }

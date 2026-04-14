@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { storeToDb } from "@repo/queue";
 import { storeArtists } from "../../../lib/storeArtists";
 import { storeSongs } from "../../../lib/storeSongs";
+import { storeAlbums } from "../../../lib/storeAlbums";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ type: string }> }) {
     const { type } = await context.params
@@ -53,11 +54,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
             }, { status: 401 })
         }
         console.log("came in /search/type")
+        console.log(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
         const data = res.data;
-        console.log((data))
-        console.log("data length :", data.data.results.length)
-        console.log(typeof (data))
 
         if (type === "artists") {
             storeArtists(data.data.results[0].id)
@@ -73,10 +72,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
                 success: true,
                 data: data.data.results,
             })
+        } else if(type==="albums"){
+            console.log("inside album function")
+            const finalAlbums = data.data.results
+            console.log("albums sending to worker" , finalAlbums)
+            storeAlbums(finalAlbums)
+            return NextResponse.json({
+                success:true,
+                data: finalAlbums
+            })
         }
         return NextResponse.json({
             success: true,
-            data: data.data.results[0],
+            data: data.data.results,
         })
     } catch (error: any) {
         console.log("Error in /api/search :", error);

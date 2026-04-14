@@ -3,13 +3,17 @@ import { connection } from '@repo/queue'
 import { db, downloadUrl, singer, song } from "@repo/db";
 import { eq, inArray } from "drizzle-orm";
 
-
+interface Response {
+    albumId?:string
+    songs:any
+}
 export const storeSongsinDb = new Worker(
     "storeSongsToDb",
     async (job) => {
         console.log("store songs to db worker working")
         try {
-            const { songs } = job.data
+            const { songs , albumId }:Response = job.data
+            console.log("albumId in worker" ,albumId)
             if (!songs || songs.length === 0) {
                 console.log("no song found>")
                 const result = {
@@ -38,8 +42,6 @@ export const storeSongsinDb = new Worker(
                     }
                     return s
                 })
-
-
             }
             const checkSingers = async () => {
                 const singerIds = songs.map((s: any) => s.artists.primary[0].id)
@@ -77,18 +79,20 @@ export const storeSongsinDb = new Worker(
                 Promise.all(filteredSongs.map(async (music: any) => {
                     const insertSong = await db.insert(song).values({
                         songId: music.id,
-                        singerId: music.artists.primary[0].id,
                         name: music.name,
                         type: music.type,
-                        duration: music.duration,
-                        year: music.year,
-                        playCount: music.playCount,
-                        releaseDate: music.releaseDate,
+                        duration: music.duration|| null,
+                        year: music.year || null,
+                        playCount: music.playCount|| null,
+                        releaseDate: music.releaseDate ? Number(music.releaseDate) : null,
                         language: music.language,
+                        lyrics: music.lyrics || false,
                         hasLyrics: music.hasLyrics,
                         label: music.label,
                         url: music.url,
-                        isExplicit: music.explicitContent
+                        isExplicit: music.explicitContent,
+                        albumId : albumId ? String(albumId) : null,
+                        singerId: music.artists.primary[0].id,
                     }).returning()
 
                     return insertSong
