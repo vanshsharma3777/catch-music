@@ -8,10 +8,11 @@ export async function playOfflineSong(songId: string) {
     console.log("Song not found offline")
     return
   }
+  console.log("[PLAYER] Playing:", song.name);
 
-  const audioUrl = URL.createObjectURL(song.blob)
+  const audio = new Audio(song.url)
 
-  const audio = new Audio(audioUrl)
-
-  audio.play()
+  audio.play().catch((err) => {
+    console.log("[PLAYER] Playback failed (maybe not cached):", err);
+  });
 }

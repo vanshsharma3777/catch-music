@@ -1,3 +1,5 @@
+const CACHE_NAME = "music-cache-v1";
+
 self.addEventListener("install", () => {
   console.log("SW Installed")
   self.skipWaiting()
@@ -17,64 +19,57 @@ self.addEventListener("message", async (event) => {
   if (!Array.isArray(songs)) {
     songs = [songs]
   }
+  const cache = await caches.open(CACHE_NAME);
 
-  const request = indexedDB.open("music-db", 1)
+  for (const song of songs) {
+    try {
+      if (!song.url) {
+        console.log("[SW] Invalid song:", song);
+        continue;
+      }
 
-  request.onupgradeneeded = (event) => {
-    const db = event.target.result
-    db.createObjectStore("songs", { keyPath: "songId" })
-  }
+      const cached = await cache.match(song.url);
 
-  request.onsuccess = async () => {
+      if (cached) {
+        console.log("[SW] Already cached:", song.songId);
+        continue;
+      }
 
-    const db = request.result
+      console.log("[SW] Fetching & caching:", song.songId);
 
-    for (const song of songs) {
+      const response = await fetch(song.url);
 
-  try {
+      await cache.put(song.url, response.clone());
 
-    if (!song.songId || !song.url) {
-      console.log("Invalid song", song)
-      continue
+      console.log("[SW] Cached successfully:", song.songId);
+
+    } catch (err) {
+      console.log("[SW] Cache failed:", err);
     }
-
-    const checkTx = db.transaction("songs", "readonly")
-    const checkStore = checkTx.objectStore("songs")
-
-    const existing = await new Promise((resolve) => {
-      const req = checkStore.get(song.songId)
-      req.onsuccess = () => resolve(req.result)
-    })
-
-    if (existing) {
-      console.log("Already downloaded", song.songId)
-      continue
-    }
-
-    const res = await fetch(song.url)
-    const blob = await res.blob()
-
-    const tx = db.transaction("songs", "readwrite")
-    const store = tx.objectStore("songs")
-
-    store.put({
-      songId: song.songId,
-      name: song.name,
-      singerId : song.singerId,
-      image : song.image,
-      duration:song.duration,
-      label: song.label,
-      blob
-    })
-
-    console.log("song stored", song.songId)
-
-  } catch (error) {
-    console.log("download failed", error)
   }
-
-}
-
-  }
-
 })
+
+self.addEventListener("fetch", (event) => {
+  const url = event.request.url;
+
+  if (url.includes(".mp3") || url.includes(".m4a") || url.includes("audio")) {
+    
+    event.respondWith(
+      caches.open(CACHE_NAME).then(async (cache) => {
+        const cached = await cache.match(event.request);
+
+        if (cached) {
+          console.log("[SW] Serving from cache:", url);
+          return cached;
+        }
+
+        console.log("[SW] Fetching from network:", url);
+
+        const response = await fetch(event.request);
+        cache.put(event.request, response.clone());
+
+        return response;
+      })
+    );
+  }
+});
