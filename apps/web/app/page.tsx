@@ -79,6 +79,12 @@ export default function Home() {
         <button onClick={() => {
           setCount(count + 1)
           setSingers((prev) => {
+            return [...prev, "Darshal ravel"]
+          })
+        }} className="rounded-xl border-green-900  border px-5 py-3 mx-2">Darshal Ravel</button>
+        <button onClick={() => {
+          setCount(count + 1)
+          setSingers((prev) => {
             return [...prev, "badshah"]
           })
         }} className="rounded-xl border-green-900  border px-5 py-3 mx-2">Badshah</button>

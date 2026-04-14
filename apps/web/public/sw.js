@@ -59,7 +59,7 @@ self.addEventListener("message", async (event) => {
 
     store.put({
       songId: song.songId,
-      songName: song.songName,
+      name: song.name,
       singerId : song.singerId,
       image : song.image,
       duration:song.duration,

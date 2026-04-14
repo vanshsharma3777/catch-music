@@ -7,7 +7,7 @@ export const downloadSong = async (songs: any) => {
       songId: song.songId,
       url: song.url,
       singerId: song.singerId,
-      songName: song.name,
+      name: song.name,
       image: song.image,
       duration: song.duration,
       label: song.label,

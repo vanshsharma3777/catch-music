@@ -2,7 +2,7 @@ import { db, downloadUrl, imageUrl, singer, song } from '@repo/db'
 import axios from 'axios'
 import { Worker } from 'bullmq'
 import { connection } from '@repo/queue'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 
 export const storeInDb = new Worker(
     "storeToDb",
@@ -17,10 +17,10 @@ export const storeInDb = new Worker(
                 }
                 return result;
             }
-            console.log(`${process.env.JIO_SAVAAN}/api/artists?id=${responseId}`)
+            
             const resSongs = await axios.get(`${process.env.JIO_SAVAAN}/api/artists?id=${responseId}`)
-            console.log("ress0ong", resSongs.data)
             const artistsData = resSongs.data.data
+
             const existingSinger = await db
                 .select()
                 .from(singer)
@@ -52,62 +52,77 @@ export const storeInDb = new Worker(
                     })
                     .returning()
             }
-            console.log(artistsData.id)
-            let downloadSongsUrls: any[] = [];
-            await Promise.all(
-                artistsData.topSongs.slice(0, 10).map(async (music: any) => {
-                    const existingSong = await db
-                        .select()
-                        .from(song)
-                        .where(eq(song.songId, music.id))
-                        .limit(1)
-                    if (existingSong.length === 0) {
-                        await db.insert(song).values({
-                            songId: music.id,
-                            singerId: artistsData.id,
-                            name: music.name,
-                            type: music.type,
-                            duration: music.duration,
-                            year: music.year,
-                            playCount: music.playCount,
-                            releaseDate: music.releaseDate,
-                            language: music.language,
-                            lyrics: music.lyrics,
-                            hasLyrics: music.hasLyrics,
-                            label: music.label,
-                            url: music.url,
-                            isExplicit: music.isExplicit
-                        }).returning()
+            const songs = artistsData.topSongs.slice(0, 10)
 
-                        const downloadSongsUrl = await db.insert(downloadUrl).values({
-                            songId: music.id,
-                            downloadConfig: music.downloadUrl.map((url: any) => ({
-                                quality: url.quality,
-                                url: url.url
-                            }))
-                        }).returning()
-                        downloadSongsUrls.push(downloadSongsUrl);
+            const songIds = songs.map((s: any) => s.id)
+            console.log("songsids" , songIds)
+            const existingSongs = await db
+                .select()
+                .from(song)
+                .where(inArray(song.songId, songIds))
 
-                        await db.insert(imageUrl).values({
-                            songId: music.id,
-                            imageConfig: music.image.map((url: any) => ({
-                                quality: url.quality,
-                                url: url.url
-                            }))
-                        })
-                    }
-                    })
-                    
+            const existingSongIds = new Set(
+                existingSongs.map((s: any) => s.songId)
             )
-            if (!singerData) {
-                console.log("No singer found")
-                const result = {
-                    success: false,
-                    error: "No singer found "
-                }
-                return result;
+
+            const songsToInsert = songs.filter(
+                (s: any) => !existingSongIds.has(s.id)
+            )
+            console.log("Songs to insert:", songsToInsert.length)
+
+            if (songsToInsert.length === 0) {
+                console.log("All songs already exist")
+                return
             }
-           
+
+            const insertedSongs = await db.insert(song).values(
+                songsToInsert.map((music: any) => ({
+                    songId: music.id,
+                    singerId: artistsData.id,
+                    name: music.name,
+                    type: music.type,
+                    duration: music.duration,
+                    year: music.year,
+                    playCount: music.playCount,
+                    releaseDate: music.releaseDate,
+                    language: music.language,
+                    lyrics: music.lyrics,
+                    hasLyrics: music.hasLyrics,
+                    label: music.label,
+                    url: music.url,
+                    isExplicit: music.isExplicit
+                }))
+            ).returning()
+
+            const insertedDownloadUrls = await db
+                .insert(downloadUrl)
+                .values(
+                    songsToInsert.map((music: any) => ({
+                        songId: music.id,
+                        downloadConfig: music.downloadUrl.map((url: any) => ({
+                            quality: url.quality,
+                            url: url.url
+                        }))
+                    }))
+                )
+                .returning()
+
+            const insertedImages = await db
+                .insert(imageUrl)
+                .values(
+                    songsToInsert.map((music: any) => ({
+                        songId: music.id,
+                        imageConfig: music.image.map((img: any) => ({
+                            quality: img.quality,
+                            url: img.url
+                        }))
+                    }))
+                )
+
+            console.log("Inserted Songs:", insertedSongs.length)
+            console.log("Inserted Download URLs:", insertedDownloadUrls.length)
+            console.log("Inserted Images:", insertedImages.length)
+
         } catch (error: any) {
             console.log("internal server error in storeToDb worker")
             console.log("err", error.message)

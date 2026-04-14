@@ -23,9 +23,9 @@ export default function song() {
                         return res.data
                     })
                 )
-                const songs = responses.flatMap(r => r.songs)
+                const songs = responses.flatMap(r => r.songs).filter(Boolean)
                 console.log(responses)
-                const downloadUrls = responses.flatMap(r => r.downloadUrlOfAllSongs)
+                const downloadUrls = responses.flatMap(r => r.downloadUrlOfAllSongs).filter(Boolean)
                 setAllSongs(songs)
                 setAllDownloadUrl(downloadUrls)
 
@@ -47,14 +47,15 @@ export default function song() {
         }
         console.log("download url length not 0")
         const songsToDownload = allDownloadUrl.map((song: any) => {
-            const songsMatched = allSongs.find((s) => s.songId === song.songId)
+            const songsMatched = allSongs.find((s) => s?.songId === song.songId)
 
             if (!songsMatched) return null
-
+                console.log("somng name" , songsMatched.name)
+                console.log("somng image" , songsMatched.image)
             return {
                 songId: songsMatched.songId,
                 singerId: songsMatched.singerId,
-                songName: songsMatched.name,
+                name: songsMatched.name,
                 url: song.downloadConfig.at(-1).url,
                 image: songsMatched.image,
                 duration: songsMatched.duration,
@@ -62,7 +63,7 @@ export default function song() {
             }
         }).filter(Boolean)
         downloadSong(songsToDownload)
-    }, [])
+    }, [allDownloadUrl])
     return (
         <div>
             <div>

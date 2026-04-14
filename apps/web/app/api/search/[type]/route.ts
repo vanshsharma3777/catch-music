@@ -61,16 +61,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ty
 
         if (type === "artists") {
             storeArtists(data.data.results[0].id)
+            return NextResponse.json({
+                success: true,
+                data: data.data.results[0],
+            })
         } else if (type === "songs") {
             const finalSongs = data.data.results
-            console.log("fial songs" , finalSongs)
+            console.log("fial songs", finalSongs)
             storeSongs(finalSongs)
             return NextResponse.json({
                 success: true,
                 data: data.data.results,
             })
         }
-
         return NextResponse.json({
             success: true,
             data: data.data.results[0],

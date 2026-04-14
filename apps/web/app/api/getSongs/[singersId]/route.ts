@@ -5,9 +5,9 @@ import { eq } from "drizzle-orm";
 import { authOptions } from "../../../lib/config/authOptions";
 import { redis } from "../../../lib/config/redis";
 
-export async function GET(request: Request, { params }: { params: { singersId: string } }) {
-    const { singersId } = await params
-     console.log("redis url", process.env.UPSTASH_REDIS_REST_URL || "") 
+export async function GET( request: Request,{ params }: { params: { singersId: string } }) {
+    const {singersId}  = await params
+    console.log("redis url", process.env.UPSTASH_REDIS_REST_URL || "")
     const session = await getServerSession(authOptions);
     if (!session) {
         return NextResponse.json({
@@ -22,9 +22,11 @@ export async function GET(request: Request, { params }: { params: { singersId: s
         }, { status: 501 })
     }
     let songs: any;
-    songs = await redis.get(`singersId`)
-    console.log("redis hit")
-    console.log("songs from redis" , songs)
+    songs = await redis.get(`singerId:${singersId}`)
+    if (songs) {
+        console.log("redis hit")
+        console.log("songs from redis", songs)
+    }
     if (!songs || songs.length === 0) {
         songs = await db.select().from(song).where(eq(song.singerId, singersId))
         if (songs.length === 0) {
@@ -34,7 +36,7 @@ export async function GET(request: Request, { params }: { params: { singersId: s
             }, { status: 502 })
         }
         console.log("redis miss")
-    console.log("songs from db" , songs)
+        console.log("songs from db", songs)
     }
 
     const downloadUrlOfAllSongs = await Promise.all(
@@ -43,7 +45,7 @@ export async function GET(request: Request, { params }: { params: { singersId: s
             return downloadUrls[0]
         })
     )
-   
+
     await redis.set(`singerId:${singersId}`, songs, { ex: 600 })
     console.log("downloadUrlOfAllSongs ", downloadUrlOfAllSongs)
     return NextResponse.json({
