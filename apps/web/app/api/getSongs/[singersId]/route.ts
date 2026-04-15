@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { authOptions } from "../../../lib/config/authOptions";
 import { redis } from "../../../lib/config/redis";
 
-export async function GET( request: Request,{ params }: { params: { singersId: string } }) {
+export async function GET( request: Request,{ params }: { params: Promise<{ singersId: string }> }) {
     const {singersId}  = await params
     console.log("redis url", process.env.UPSTASH_REDIS_REST_URL || "")
     const session = await getServerSession(authOptions);
