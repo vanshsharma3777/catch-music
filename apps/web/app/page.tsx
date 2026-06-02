@@ -1,7 +1,7 @@
 'use client'
 
 import { singer } from "@repo/db";
-import axios from "axios";
+import axios, { Axios, isAxiosError } from "axios";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -32,7 +32,8 @@ export default function Home() {
   console.log("singers", singers)
   useEffect(() => {
     const fetchArtists = async () => {
-      if (count !== 1) return
+      try{
+        if (count !== 1) return
 
       console.log("singers in eff", singers)
 
@@ -48,6 +49,14 @@ export default function Home() {
       )
 
       setSingersId(ids)
+      }catch(error){
+        if(axios.isAxiosError(error)){
+          if(error.status===400){
+            console.log("Unauthenticated")
+            router.replace("/api/auth/signin")
+          }
+        }
+      }
     }
 
     fetchArtists()
