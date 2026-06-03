@@ -66,21 +66,17 @@ export const storeAlbumsInDb = new Worker(
                 return insertAlbum[0]
             }))
 
-            console.log("inserted albums is " , insertedAlbum)
-            if(insertedAlbum.length!==0){
+            console.log("inserted albums is ", insertedAlbum)
+            if (insertedAlbum.length !== 0) {
                 await Promise.all(
-                songs.map(async (song: any) => {
-                    let index =0;
-                    console.log("calling song worker to save in db")
-                    await storeSongsToDb.add("storeSongsToDb", { songs: [song] , albumId: insertedAlbum[index].albumId})
-                    index+=1
-                })
-
-
-            )
+                    songs.map(async (song: any) => {
+                        let index = 0;
+                        console.log("calling song worker to save in db")
+                        await storeSongsToDb.add("storeSongsToDb", { songs: [song], albumId: insertedAlbum[index].albumId })
+                        index += 1
+                    })
+                )
             }
-
-
         } catch (error: any) {
             console.log("internal server error ")
             console.log("error ", error?.message)

@@ -3,7 +3,7 @@ import axios from 'axios'
 import { Worker } from 'bullmq'
 import { connection } from '@repo/queue'
 import { eq, inArray } from 'drizzle-orm'
-
+console.log("hello worls")
 export const storeInDb = new Worker(
     "storeToDb",
     async (job) => {

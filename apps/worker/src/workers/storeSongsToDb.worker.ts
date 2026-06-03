@@ -7,6 +7,8 @@ interface Response {
     albumId?:string
     songs:any
 }
+
+console.log("store song file loaded")
 export const storeSongsinDb = new Worker(
     "storeSongsToDb",
     async (job) => {

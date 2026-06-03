@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
 
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search?query=${encodeURIComponent(query.trim())}`)
         const data = res.data;
-        
         if (!data) {
             return NextResponse.json({
                 success: false,
