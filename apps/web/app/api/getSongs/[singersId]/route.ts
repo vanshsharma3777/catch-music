@@ -14,6 +14,7 @@ export async function GET( request: Request,{ params }: { params: Promise<{ sing
             error: "Unauthenticated"
         }, { status: 400 })
     }
+
     if (singersId.length === 0) {
         return NextResponse.json({
             success: false,
