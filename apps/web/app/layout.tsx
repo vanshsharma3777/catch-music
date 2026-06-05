@@ -27,7 +27,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} bg-slate-900 text-white`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} bg-bg text-pri`}>
         <ServiceWorkerRegister />
         {children}
       </body>
