@@ -1,11 +1,12 @@
 "use client"
 
-import { Check, CheckCircle, Download, Headphones, Menu, MoreHorizontal, Music4, Pause, Play, Repeat, Shuffle, ShuffleIcon, SkipBack, SkipForward, WifiOff, Zap } from "lucide-react";
+import { Check, CheckCircle, Download, Globe, Headphones, Menu, MoreHorizontal, Music4, Pause, Play, Repeat, Shield, ShieldAlert, ShieldCheck, ShieldX, Shuffle, ShuffleIcon, SkipBack, SkipForward, Volume2, WholeWord, WifiOff, Zap } from "lucide-react";
 import ButtonComponent from "../components/Button";
 import { useEffect, useRef, useState } from "react";
 
 export default function ThemePreview() {
   const songs = [
+    
     {
       title: "Aari Aari",
       artist: "Dhurandhar-2",
@@ -19,7 +20,7 @@ export default function ThemePreview() {
       url: "https://aac.saavncdn.com/598/9117397be2712fb843b268a7c16b941a_320.mp4",
     },
     {
-      title: "Teri galliyo se",
+      title: "Teri galliyon se",
       artist: "Album",
       image: "/songs/starboy.jpg",
       url: "https://aac.saavncdn.com/584/ead0e8ac5d1db46a2adc2337cf47f4e1_320.mp4",
@@ -27,7 +28,7 @@ export default function ThemePreview() {
   ];
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSongIndex, setCurrentSongIndex] = useState(0);
-  const audioRef = useRef<HTMLAudioElement>(null)
+  const audioRef = useRef<HTMLAudioElement>(null )
   const [currentTime, setCurrentTime] = useState(0);
 const [duration, setDuration] = useState(0);
   const currentSong = songs[currentSongIndex];
@@ -40,8 +41,9 @@ const [duration, setDuration] = useState(0);
     : 0;
   
     useEffect(() => {
-  if (audioRef.current) {
-    audioRef.current.src = currentSong!.url;
+      console.log(currentSongIndex)
+  if (audioRef.current && currentSong?.url) {
+    audioRef.current.src = currentSong?.url
   }
 }, [currentSongIndex]);
 
@@ -78,17 +80,13 @@ const [duration, setDuration] = useState(0);
     (clickedPercentage / 100) * duration;
 }
 
-  function playCurrentSong() {
-  if (!audioRef.current || !currentSong) return;
-
-  audioRef.current.src = currentSong.url;
-  audioRef.current.play();
-    setIsPlaying(true);
-
-}
 
   function playNextSong() {
-   const wasPlaying = isPlaying;
+    const wasPlaying = isPlaying;
+    if(currentSongIndex===2){
+      setCurrentSongIndex(0)
+      return
+    }
 
   setCurrentSongIndex(currentSongIndex+1);
 
@@ -118,7 +116,7 @@ function formatTime(time: number) {
     .padStart(2, "0")}`;
 }
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen ">
       <div className={`absolute top-12 left-20 h-[100px] w-[100px] -z-10 bg-blob-gold blur-[80px]`} ></div>
       <header className="relative overflow-hidden z-10 text-pri">
         <div className="mt-8 flex justify-between items-center">
@@ -150,8 +148,9 @@ function formatTime(time: number) {
       </header>
       {/* <div className={`absolute bottom-10  right-24  h-[30px] w-[900px] bg-blob-gold-sec blur-[90px] rounded-[58%_42%_23%_77%/32%_64%_36%_68%]`}></div> */}
 
-      <main className="mt-[5%] ml-16 flex">
-        <div className="w-[35%] ">
+      <main className="mt-[5%] ml-16 "> 
+        <div className="flex ">
+          <div className="w-[35%] ">
           <div>
             <div className="w-[45%] rounded-lg border-[1px]  border-border-light py-1 pl-1 flex  ">
               <div className="px-1"> <Headphones className="text-muted" /></div>
@@ -261,9 +260,9 @@ function formatTime(time: number) {
           </div>
         </div>
 
-        <div className="relative   w-[60%] ">
+        <div className="relative   w-[60%]  ">
           <div className=" flex items-startms-center h-full">
-            <div className="  flex  w-[70%] jusitfy-center items-center">
+            <div className="  flex  w-[80%] jusitfy-center items-center">
               <div className="ml-9 flex   items-center gap-[5px]">
                 {waveform.map((height, i) => (
                   <div
@@ -395,7 +394,82 @@ function formatTime(time: number) {
             </div>
           </div>
         </div>
+        </div>
+
+        
       </main>
+
+      <section>
+        <div className="mt-10 flex justify-center ">
+          <div className="w-[70%] bg-card p-4 rounded-xl border-border">
+            <div className="flex justify-between  items-center">
+              
+            <div className="flex  w-full justify-center" >
+              <div className="flex mt-3 justify-center items-center">
+                <div className="flex items-start  gap-2  text-lg">
+                  <div className="shrink-0">
+
+                    <Globe
+                      size={30}
+                      strokeWidth={2}
+                      className="text-blob-gold-ter"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="font-medium">
+                      Works Everywhere
+                    </div>
+                    <div className="text-sec mt-1">
+                      Cross-plateform supports for all your devices
+                    </div>
+
+                  </div>
+                </div>
+                <div className="flex items-start mx-3  gap-2 text-lg  ">
+                  <div className="shrink-0">
+                    <Volume2
+                      size={30}
+                      strokeWidth={2}
+                      className="text-blob-gold-ter"
+                    />
+                  </div>
+
+                  <div className="">
+                    <div className="font-medium">
+                      High Quality Audio
+                    </div>
+
+                    <div className="text-sec mt-1 text-wrap">
+                      Experience your music in best qualiy
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2  text-lg">
+                  <div className="shrink-0">
+                    <ShieldCheck
+                      size={30}
+                      strokeWidth={2}
+                      className="text-blob-gold-ter"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="font-medium">
+                      Private & Secure 
+                    </div>
+
+                    <div className="text-sec mt-1">
+                      Your data is encrypted and always protected
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <audio
   ref={audioRef}
   src={currentSong?.url}
