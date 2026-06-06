@@ -10,7 +10,7 @@ type ButtonProp ={
 
 export default function ButtonComponent({classNameInputs , onClick , buttonInput } : ButtonProp){
     const router = useRouter()
-
+    console.log("nav to" , onClick)
     return (
         <button onClick={()=>{
             router.push(`${onClick}`)

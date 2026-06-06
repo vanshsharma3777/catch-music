@@ -49,9 +49,9 @@
           error: "var(--error)",
 
           /* Animated Blob Colors */
-          "blob-purple": "var(--blob-purple)",
-          "blob-blue": "var(--blob-blue)",
-          "blob-cyan": "var(--blob-cyan)",
+          "blob-gold": "var(--blob-purple)",
+          "blob-gold-sec": "var(--blob-blue)",
+          "blob-gold-ter": "var(--blob-cyan)",
         },
 
         boxShadow: {

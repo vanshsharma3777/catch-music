@@ -4,53 +4,66 @@
 
 :root {
 
-  --background: #050816;
-  --background-secondary: #0B1020;
-  --background-tertiary: #111827;
+  /* Backgrounds */
+  --background: #000000;
+  --background-secondary: #050505;
+  --background-tertiary: #0A0A0A;
 
-  --card: #151E33;
-  --card-hover: #1B2640;
-  --surface: #1A2440;
+  /* Cards & Surfaces */
+  --card: #0D0D0D;
+  --card-hover: #151515;
+  --surface: #111111;
 
+  /* Text */
   --text-primary: #FFFFFF;
-  --text-secondary: #A1A1AA;
-  --text-muted: #71717A;
+  --text-black: [#1A1A1A];
+  --text-secondary: #B8B8B8;
+  --text-muted: #7A7A7A;
 
-  --primary: #8B5CF6;
-  --primary-hover: #7C3AED;
-  --primary-light: #C4B5FD;
-  
-  --secondary: #22D3EE;
-  --secondary-hover: #06B6D4;
+  /* Primary Gold */
+  --primary: #624000;
+  --primary-hover: #FFC94D;
+  --primary-light: #FFE08A;
 
-  --accent: #EC4899;
+  /* Secondary Gold/Orange */
+  --secondary: #FFB800;
+  --secondary-hover: #FFCA3A;
 
-  --border: #23304F;
-  --border-light: #2D3D63;
+  /* Accent */
+  --accent: #FF8C00;
 
-  --input-bg: #151E33;
-  --input-border: #23304F;
-  --input-focus: #8B5CF6;
+  /* Borders */
+  --border: #1E1E1E;
+  --border-light: #2A2A2A;
 
+  /* Inputs */
+  --input-bg: #111111;
+  --input-border: #1E1E1E;
+  --input-focus: #F5B933;
+
+  /* Status */
   --success: #22C55E;
-  --warning: #F59E0B;
+  --warning: #F5B933;
   --error: #EF4444;
 
-  --blob-purple: #7C3AED;
-  --blob-blue: #2563EB;
-  --blob-cyan: #06B6D4;
+  /* Blob Colors */
+  --blob-purple: #D4A017;
+  --blob-blue: #FFB800;
+  --blob-cyan: #FF8C00;
 
-  --glow-purple: rgba(124, 58, 237, 0.35);
-  --glow-blue: rgba(37, 99, 235, 0.30);
-  --glow-cyan: rgba(6, 182, 212, 0.25);
+  /* Glow Colors */
+  --glow-purple: rgba(245, 185, 51, 0.35);
+  --glow-blue: rgba(255, 184, 0, 0.30);
+  --glow-cyan: rgba(255, 140, 0, 0.25);
 
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.25);
+  /* Shadows */
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
 
-  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.45);
 
-  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.60);
 
-  --shadow-primary: 0 0 40px rgba(139, 92, 246, 0.25);
+  --shadow-primary: 0 0 40px rgba(245, 185, 51, 0.30);
 
-  --shadow-cyan: 0 0 40px rgba(6, 182, 212, 0.20);
+  --shadow-cyan: 0 0 40px rgba(255, 184, 0, 0.25);
 }
