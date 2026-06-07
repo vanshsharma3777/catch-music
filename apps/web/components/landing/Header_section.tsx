@@ -21,7 +21,7 @@ export default function HeaderSection() {
           </div>
 
           <div>
-            <ul className="flex  w-[500px] text-sec  px-3 py-2 justify-between cursor-pointer">
+            <ul className="flex  w-[500px] text-sec text-xl  px-3 py-2 justify-between cursor-pointer">
               <button onClick={() => {
                 document.getElementById("features")?.scrollIntoView({
                   behavior: "smooth",
@@ -33,12 +33,12 @@ export default function HeaderSection() {
                 });
               }} className="hover:transition-all hover:duration-300 hover:transition-ease-in-out  hover:text-pri hover:scale-110">Problems</button>
               <button onClick={() => {
-                document.getElementById("features")?.scrollIntoView({
+                document.getElementById("working")?.scrollIntoView({
                   behavior: "smooth",
                 });
-              }} className="hover:transition-all hover:duration-300 hover:transition-ease-in-out  hover:text-pri hover:scale-110">Solution</button>
+              }} className="hover:transition-all hover:duration-300 hover:transition-ease-in-out  hover:text-pri hover:scale-110">Working</button>
               <button onClick={() => {
-                document.getElementById("features")?.scrollIntoView({
+                document.getElementById("working")?.scrollIntoView({
                   behavior: "smooth",
                 });
               }} className="hover:transition-all hover:duration-300 hover:transition-ease-in-out  hover:text-pri hover:scale-110">Features</button>

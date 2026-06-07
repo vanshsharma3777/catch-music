@@ -1,12 +1,18 @@
 "use client"
 
-import { Check, CheckCircle, Download, Globe, Headphones, Menu, MoreHorizontal, Music4, Pause, Play, Repeat, Shield, ShieldAlert, ShieldCheck, ShieldX, Shuffle, ShuffleIcon, SkipBack, SkipForward, Volume2, WholeWord, WifiOff, Zap } from "lucide-react";
+import { Check, CheckCircle, Copyright, Download, Globe, Headphones, Menu, MoreHorizontal, Music4, Pause, Play, Repeat, Shield, ShieldAlert, ShieldCheck, ShieldX, Shuffle, ShuffleIcon, SkipBack, SkipForward, Volume2, WholeWord, WifiOff, Zap } from "lucide-react";
 import ButtonComponent from "../components/Button";
 import { useEffect, useRef, useState } from "react";
 import MainSection from "../components/landing/main_section";
 import HeaderSection from "../components/landing/Header_section";
 import FeaturesSection from "../components/landing/features_section";
 import ProblemSection from "../components/landing/problems";
+import WorkingSection from "../components/landing/working";
+import MomentsSection from "../components/landing/moments";
+import AboutSection from "../components/landing/about";
+import { FaLinkedin } from "react-icons/fa";
+import { SiGithub, SiX } from "react-icons/si";
+import ScrollButtons from "../components/scrollButton";
 
 export default function ThemePreview() {
   
@@ -88,8 +94,29 @@ export default function ThemePreview() {
         </div>
       </section>
       <FeaturesSection/>
-
       <ProblemSection/>
+      <WorkingSection/>
+      <MomentsSection/>
+      <AboutSection/>
+      <ScrollButtons/>
+
+      <div className="flex justify-center  ">
+                    <div className="mt-12 flex justify-between text-sm bg-card border border-border w-full py-5 px-5 rounded-xl ">
+                    <div className="flex  items-center">
+                       <div className="flex gap-2 items-center text-sec"> <Copyright className="text-secondary" />2026 CatchMusic. All rights reserved.</div>
+                        </div>
+                        <div className="flex  justify-center">
+                            <div className="flex justify-center">
+                                <div className="flex gap-2 text-sec pl-3"><SiGithub className="text-secondary " size={20} /><a href="https://github.com/vanshsharma3777">Github</a></div>
+                            <div className="flex gap-2 text-sec px-6"><SiX className="text-secondary " size={20} /> <a href="https://x.com/itz_sharmaji001">X</a></div>
+                            <div className="flex gap-2 text-sec pr-3"><FaLinkedin className="text-secondary " size={20} /><a href="https://www.linkedin.com/in/vansh-sharma-812199316/">LinkedIn</a></div>
+                            </div>
+                        </div>
+                        <div className="text-sec">
+                            Built with ❤️ by Vansh
+                        </div>
+                </div>
+                </div>
     </div>
     
   );

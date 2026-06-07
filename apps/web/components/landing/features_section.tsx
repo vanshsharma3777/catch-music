@@ -114,18 +114,7 @@ export default function FeaturesSection() {
                         <div className="shrink-0"><img src="comp-phone.png" alt="" className="w-[350]" /> </div>
                     </div>
                 </div>
-                <div className="flex p-6 gap-10 justify-center ">
-                    <div className="flex p-8 items-center ">
-                        <div className="flex   ">
-                            
-                            <div className="ml-3">
-                                <div className="text-3xl">Your Music</div>
-                                <div className="text-blob-gold-sec  text-4xl">Always with you</div>
-                            </div>
-                        </div>
-                        <div className="shrink-0"><img src="boy2.png" alt="" className="w-[350]" /> </div>
-                    </div>
-                </div>
+                
             </div>
             
         </div>

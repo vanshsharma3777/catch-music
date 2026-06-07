@@ -11,11 +11,11 @@ export default function ProblemSection() {
                 </div>
                 <div className="flex flex-col gap-3">
                     <div>
-                        <div className="text-3xl mb-1 font-medium whitespace-nowrap">
+                        <div className="text-6xl mb-1 font-medium whitespace-nowrap">
                             The Problems We All Face
                         </div>
 
-                        <div className="text-3xl font-medium whitespace-nowrap">
+                        <div className="text-6xl font-medium whitespace-nowrap">
                             (And We <span className="text-blob-gold-sec">Solve Them</span>)
                         </div>
                     </div>
