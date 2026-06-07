@@ -118,7 +118,7 @@ export default function MainSection(){
     }
     return (
 <div>
-<main className="mt-[5%] ml-16 "> 
+<main className="mt-[5%]  "> 
         <div className="flex ">
           <div className="w-[35%] ">
           <div>
@@ -225,7 +225,7 @@ export default function MainSection(){
               </div>
 
             </div>
-            <div className="text-xl text-sec "><div className="text-md text-ter">Cache once. Listen forever.</div></div>
+            <div className="text-lg text-sec "><div className="text-md text-ter">These doesn't provide user offline song for lifetime.</div></div>
 
           </div>
         </div>

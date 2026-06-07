@@ -5,19 +5,20 @@ import ButtonComponent from "../components/Button";
 import { useEffect, useRef, useState } from "react";
 import MainSection from "../components/landing/main_section";
 import HeaderSection from "../components/landing/Header_section";
+import FeaturesSection from "../components/landing/features_section";
+import ProblemSection from "../components/landing/problems";
 
 export default function ThemePreview() {
   
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen mx-16">
       <div className={`absolute top-12 left-20 h-[100px] w-[100px] -z-10 bg-blob-gold blur-[80px]`} ></div>
      <HeaderSection/>
       {/* <div className={`absolute bottom-10  right-24  h-[30px] w-[900px] bg-blob-gold-sec blur-[90px] rounded-[58%_42%_23%_77%/32%_64%_36%_68%]`}></div> */}
-
       <MainSection/>
       <section>
-        <div className="mt-10 flex justify-center ">
-          <div className="w-[70%] bg-card p-4 rounded-xl border-border">
+        <div className="mt-10 flex  justify-center ">
+          <div className="w-[70%] bg-card  p-4 rounded-xl border-border">
             <div className="flex justify-between  items-center">
               
             <div className="flex  w-full justify-center" >
@@ -86,8 +87,9 @@ export default function ThemePreview() {
           </div>
         </div>
       </section>
-      
-      
+      <FeaturesSection/>
+
+      <ProblemSection/>
     </div>
     
   );
