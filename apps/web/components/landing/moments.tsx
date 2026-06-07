@@ -91,7 +91,7 @@ export default function MomentsSection() {
                     </div>
                 </div>
                         <div className="flex flex-col  border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" text-error  text-xl">After CatchMusic</div>
+                    <div className=" text-success  text-xl">After CatchMusic</div>
 
                     <div className="">
                         <div className="flex p-1 items-center gap-3">

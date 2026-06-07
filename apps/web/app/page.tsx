@@ -100,7 +100,7 @@ export default function ThemePreview() {
       <AboutSection/>
       <ScrollButtons/>
 
-      <div className="flex justify-center  ">
+      <div className="flex justify-center mb-5 ">
                     <div className="mt-12 flex justify-between text-sm bg-card border border-border w-full py-5 px-5 rounded-xl ">
                     <div className="flex  items-center">
                        <div className="flex gap-2 items-center text-sec"> <Copyright className="text-secondary" />2026 CatchMusic. All rights reserved.</div>
