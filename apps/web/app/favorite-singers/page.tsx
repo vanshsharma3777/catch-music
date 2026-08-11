@@ -9,6 +9,7 @@ import FullscreenPlayer from "../../components/FullscreenPlayer";
 import SmallScreenPlayer from "../../components/SmallScreenPlayer";
 import { Song } from "../types/songs";
 import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
+import { checkStorageQuota } from "../lib/estimateStorage";
 
 interface SingerSongsMap {
   singer: Singer;
@@ -20,6 +21,7 @@ function FavoriteSingersContent() {
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Cache Management State
@@ -166,9 +168,70 @@ function FavoriteSingersContent() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+      async function syncCacheStatus() {
+        try {
+          const ids = await getCachedSongIds();
+          setCachedSongIds(new Set(ids));
+          await verifyStorageCapacity(); // Check quota on mount
+        } catch (err) {
+          console.error("Failed to load cached song IDs:", err);
+        }
+      }
+      syncCacheStatus();
+    }, []);
+
+  const verifyStorageCapacity = async () => {
+      await checkStorageQuota((status) => {
+        setStorageWarning(
+          `Warning: Storage space is critical (${status.remainingMB} MB remaining). Clear cache to save new tracks.`
+        );
+      });
+    };
   const flatPlaylist = useMemo(() => {
     return groupedSongs.flatMap((group) => group.songs);
   }, [groupedSongs]);
+
+  const handleToggleCache = async (e: React.MouseEvent, song: Song) => {
+      e.stopPropagation();
+      const songId = song.id;
+      const isCurrentlyCached = cachedSongIds.has(songId);
+
+      // Pre-flight check before caching a new track
+      if (!isCurrentlyCached) {
+        const status = await checkStorageQuota();
+        if (status && status.isLowStorage) {
+          alert(
+            `Cannot cache track. Device storage is below 3 MB (${status.remainingMB} MB remaining).`
+          );
+          return;
+        }
+      }
+
+      setCachingIds((prev) => new Set(prev).add(songId));
+
+      try {
+        const isNowCached = await toggleCacheSong(song, isCurrentlyCached);
+
+        setCachedSongIds((prev) => {
+          const updated = new Set(prev);
+          if (isNowCached) updated.add(songId);
+          else updated.delete(songId);
+          return updated;
+        });
+
+        // Re-verify storage state after adding/removing cached item
+        await verifyStorageCapacity();
+      } catch (err) {
+        console.error("Failed to update track cache status:", err);
+      } finally {
+        setCachingIds((prev) => {
+          const updated = new Set(prev);
+          updated.delete(songId);
+          return updated;
+        });
+      }
+    };
 
   const fetchSongsGroupedBySinger = async (artists: Singer[]) => {
     setIsLoading(true);
@@ -213,32 +276,6 @@ function FavoriteSingersContent() {
     }
   };
 
-  const handleToggleCache = async (e: React.MouseEvent, song: Song) => {
-    e.stopPropagation();
-    const songId = song.id;
-    const isCurrentlyCached = cachedSongIds.has(songId);
-
-    setCachingIds((prev) => new Set(prev).add(songId));
-
-    try {
-      const isNowCached = await toggleCacheSong(song, isCurrentlyCached);
-
-      setCachedSongIds((prev) => {
-        const updated = new Set(prev);
-        if (isNowCached) updated.add(songId);
-        else updated.delete(songId);
-        return updated;
-      });
-    } catch (err) {
-      console.error("Failed to update track cache status:", err);
-    } finally {
-      setCachingIds((prev) => {
-        const updated = new Set(prev);
-        updated.delete(songId);
-        return updated;
-      });
-    }
-  };
 
   const playTrack = (song: Song) => {
     const audioUrl = getAudioUrl(song);
@@ -375,6 +412,17 @@ function FavoriteSingersContent() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
 
       <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
+        {storageWarning && (
+                  <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm font-medium flex items-center justify-between">
+                    <span>{storageWarning}</span>
+                    <button
+                      onClick={() => setStorageWarning(null)}
+                      className="text-xs text-red-300 hover:text-white underline ml-4"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
           <div className="space-y-2">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-pri">
