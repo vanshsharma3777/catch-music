@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import axios from "axios";
 import { Play, Pause, Music2, RefreshCw, BookmarkCheck, BookmarkPlus } from "lucide-react";
@@ -15,7 +15,7 @@ interface SingerSongsMap {
   songs: Song[];
 }
 
-export default function MyFavSingersSongs() {
+function FavoriteSingersContent() {
   const searchParams = useSearchParams();
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
@@ -60,7 +60,7 @@ export default function MyFavSingersSongs() {
     };
   }, [currentSong, isShuffle, loopMode, groupedSongs, isPlaying, audioElement]);
 
-  // Load cached IDs from IndexedDB on mount
+  // Sync cache state on mount
   useEffect(() => {
     async function syncCacheStatus() {
       try {
@@ -73,7 +73,26 @@ export default function MyFavSingersSongs() {
     syncCacheStatus();
   }, []);
 
-  // Lock scroll during full-screen player & listen for Escape key to close
+  // Sync Audio Time/Duration & Cleanup on Unmount
+  useEffect(() => {
+    if (!audioElement) return;
+
+    const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
+    const handleLoadedMetadata = () => setDuration(audioElement.duration || 0);
+    const handleEnded = () => handleTrackEnded();
+
+    audioElement.addEventListener("timeupdate", handleTimeUpdate);
+    audioElement.addEventListener("loadedmetadata", handleLoadedMetadata);
+    audioElement.addEventListener("ended", handleEnded);
+
+    return () => {
+      audioElement.removeEventListener("timeupdate", handleTimeUpdate);
+      audioElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
+      audioElement.removeEventListener("ended", handleEnded);
+    };
+  }, [audioElement]);
+
+  // Manage body scroll and Escape key binding
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isPlayerExpanded) {
@@ -93,6 +112,106 @@ export default function MyFavSingersSongs() {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isPlayerExpanded]);
+
+  // Global Keyboard Controls (Spacebar Toggle)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName.toLowerCase();
+      if (activeTag === "input" || activeTag === "textarea") return;
+
+      if (e.code === "Space" && !isPlayerExpanded) {
+        e.preventDefault();
+        const { currentSong: activeSong, isPlaying: playing, audioElement: audio } = stateRef.current;
+        if (activeSong && audio) {
+          if (playing) {
+            audio.pause();
+            setIsPlaying(false);
+          } else {
+            audio.play().catch(console.error);
+            setIsPlaying(true);
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [isPlayerExpanded]);
+
+  // Load preferences / URL parameters
+  useEffect(() => {
+    let artists: Singer[] = [];
+    const singersParam = searchParams.get("singers");
+
+    if (singersParam) {
+      const ids = singersParam.split(",");
+      artists = SINGER_DATABASE.filter((s) => ids.includes(s.id));
+    } else {
+      const stored = localStorage.getItem("catchmusic_preferences");
+      if (stored) {
+        try {
+          artists = JSON.parse(stored);
+        } catch (e) {
+          console.error("Failed to parse preferences from localStorage:", e);
+        }
+      }
+    }
+
+    setSelectedSingers(artists);
+
+    if (artists.length > 0) {
+      fetchSongsGroupedBySinger(artists);
+    } else {
+      setIsLoading(false);
+    }
+  }, [searchParams]);
+
+  const flatPlaylist = useMemo(() => {
+    return groupedSongs.flatMap((group) => group.songs);
+  }, [groupedSongs]);
+
+  const fetchSongsGroupedBySinger = async (artists: Singer[]) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const validArtists = artists.filter(
+        (artist) => artist?.name && artist.name.trim() !== ""
+      );
+
+      const requests = validArtists.map((artist) => {
+        const payload = { query: artist.name.trim(), limit: 12 };
+
+        return axios
+          .post("/api/search/songs", payload, {
+            headers: { "Content-Type": "application/json" },
+          })
+          .then((response) => {
+            const resData = response.data;
+            if (resData.success && Array.isArray(resData.data)) {
+              const mappedSongs = resData.data.map((song: Song) => ({
+                ...song,
+                artistName: artist.name,
+              }));
+              return { singer: artist, songs: mappedSongs };
+            }
+            return { singer: artist, songs: [] };
+          })
+          .catch((error) => {
+            console.warn(`[API Warning] Failed to fetch songs for ${artist.name}:`, error?.response?.data || error.message);
+            return { singer: artist, songs: [] };
+          });
+      });
+
+      const results = await Promise.all(requests);
+      setGroupedSongs(results);
+    } catch (err) {
+      console.error("[Axios Error] Failed to fetch grouped songs:", err);
+      setError("Failed to load tracks. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleToggleCache = async (e: React.MouseEvent, song: Song) => {
     e.stopPropagation();
@@ -121,111 +240,6 @@ export default function MyFavSingersSongs() {
     }
   };
 
-  const flatPlaylist = useMemo(() => {
-    return groupedSongs.flatMap((group) => group.songs);
-  }, [groupedSongs]);
-
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === "input" || activeTag === "textarea") return;
-
-      if (e.code === "Space" && !isPlayerExpanded) {
-        e.preventDefault();
-        const { currentSong: activeSong, isPlaying: playing, audioElement: audio } = stateRef.current;
-        if (activeSong && audio) {
-          if (playing) {
-            audio.pause();
-            setIsPlaying(false);
-          } else {
-            audio.play();
-            setIsPlaying(true);
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [isPlayerExpanded]);
-
-  useEffect(() => {
-    document.body.style.overflow = isPlayerExpanded ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [isPlayerExpanded]);
-
-  useEffect(() => {
-    let artists: Singer[] = [];
-    const singersParam = searchParams.get("singers");
-
-    if (singersParam) {
-      const ids = singersParam.split(",");
-      artists = SINGER_DATABASE.filter((s) => ids.includes(s.id));
-    } else {
-      const stored = localStorage.getItem("catchmusic_preferences");
-      if (stored) {
-        try {
-          artists = JSON.parse(stored);
-        } catch (e) {
-          console.error("Failed to parse preferences from localStorage:", e);
-        }
-      }
-    }
-
-    setSelectedSingers(artists);
-
-    if (artists.length > 0) {
-      fetchSongsGroupedBySinger(artists);
-    } else {
-      setIsLoading(false);
-    }
-  }, [searchParams]);
-
-  const fetchSongsGroupedBySinger = async (artists: Singer[]) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      // 1. Filter out invalid/empty artist names before calling the API
-      const validArtists = artists.filter(
-        (artist) => artist?.name && artist.name.trim() !== ""
-      );
-
-      const requests = validArtists.map((artist) => {
-        const payload = { query: artist.name.trim(), limit: 12 };
-
-        return axios
-          .post("/api/search/songs", payload, {
-            headers: { "Content-Type": "application/json" },
-          })
-          .then((response) => {
-            const resData = response.data;
-            if (resData.success && Array.isArray(resData.data)) {
-              const mappedSongs = resData.data.map((song: Song) => ({
-                ...song,
-                artistName: artist.name,
-              }));
-              return { singer: artist, songs: mappedSongs };
-            }
-            return { singer: artist, songs: [] };
-          })
-          .catch((error) => {
-            // 2. Catch errors per request so one failed call doesn't break everything
-            console.warn(`[API Warning] Failed to fetch songs for ${artist.name}:`, error?.response?.data || error.message);
-            return { singer: artist, songs: [] };
-          });
-      });
-
-      const results = await Promise.all(requests);
-      setGroupedSongs(results);
-    } catch (err) {
-      console.error("[Axios Error] Failed to fetch grouped songs:", err);
-      setError("Failed to load tracks. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const playTrack = (song: Song) => {
     const audioUrl = getAudioUrl(song);
     if (!audioUrl) {
@@ -233,7 +247,10 @@ export default function MyFavSingersSongs() {
       return;
     }
 
-    if (audioElement) audioElement.pause();
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.currentTime = 0;
+    }
 
     const newAudio = new Audio(audioUrl);
     newAudio.volume = isMuted ? 0 : volume;
@@ -244,8 +261,6 @@ export default function MyFavSingersSongs() {
     setAudioElement(newAudio);
     setCurrentSong(song);
     setIsPlaying(true);
-
-    newAudio.onended = () => handleTrackEnded();
   };
 
   const handlePlaySong = (song: Song) => {
@@ -254,7 +269,7 @@ export default function MyFavSingersSongs() {
         audioElement?.pause();
         setIsPlaying(false);
       } else {
-        audioElement?.play();
+        audioElement?.play().catch(console.error);
         setIsPlaying(true);
       }
       return;
@@ -297,12 +312,12 @@ export default function MyFavSingersSongs() {
   };
 
   const handleTrackEnded = () => {
-    const { loopMode: currentLoop } = stateRef.current;
+    const { loopMode: currentLoop, audioElement: audio } = stateRef.current;
 
     if (currentLoop === "one") {
-      if (audioElement) {
-        audioElement.currentTime = 0;
-        audioElement.play();
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play().catch(console.error);
       }
       return;
     }
@@ -522,5 +537,20 @@ export default function MyFavSingersSongs() {
         />
       )}
     </div>
+  );
+}
+
+export default function MyFavSingersSongs() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-screen space-y-4 bg-bg text-pri">
+          <RefreshCw size={36} className="text-accent animate-spin" />
+          <p className="text-sm text-sec font-medium">Loading page...</p>
+        </div>
+      }
+    >
+      <FavoriteSingersContent />
+    </Suspense>
   );
 }
