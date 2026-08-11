@@ -37,7 +37,7 @@ import { Song } from "../app/types/songs";
     onToggleLoop?: () => void;
     onToggleShuffle?: () => void;
     onMinimize: () => void;
-    getImageUrl: (song: Song) => string;
+      getImageUrl: (song: Song) => string;
   }
 
   export default function FullscreenPlayer({
