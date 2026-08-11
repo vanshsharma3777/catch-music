@@ -12,10 +12,7 @@ export default function ScrollButtons() {
       const documentHeight = document.documentElement.scrollHeight;
 
       setShowTop(scrollTop > 200);
-
-      setShowBottom(
-        scrollTop + windowHeight < documentHeight - 200
-      );
+      setShowBottom(scrollTop + windowHeight < documentHeight - 200);
     };
 
     window.addEventListener("scroll", handleScroll);
@@ -36,22 +33,22 @@ export default function ScrollButtons() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-8 right-8 z-50 flex flex-col gap-3">
       {showTop && (
         <button
           onClick={scrollToTop}
-          className="p-3 rounded-full bg-primary"
+          className="p-3 rounded-xl border border-border-light bg-surface text-pri shadow-md hover:text-primary hover:border-accent/40 active:scale-95 transition-all duration-300 group"
         >
-          <ArrowUp />
+          <ArrowUp size={18} strokeWidth={2.5} className="group-hover:-translate-y-0.5 transition-transform" />
         </button>
       )}
 
       {showBottom && !showTop && (
         <button
           onClick={scrollToBottom}
-          className="p-3 rounded-full bg-primary"
+          className="p-3 rounded-xl border border-border-light bg-surface text-pri shadow-md hover:text-primary hover:border-accent/40 active:scale-95 transition-all duration-300 group"
         >
-          <ArrowDown />
+          <ArrowDown size={18} strokeWidth={2.5} className="group-hover:translate-y-0.5 transition-transform" />
         </button>
       )}
     </div>

@@ -1,145 +1,101 @@
-import { BookOpen, Copyright, Globe, Globe2, MountainIcon, Music, Phone, PhoneIcon, Plane, Send, Smartphone, Star, Train, Zap } from "lucide-react";
+import { Smartphone, BookOpen, Zap, Star, Globe, Send } from "lucide-react";
 
-export default function AboutSection(){
-    
+export default function AboutSection() {
+  const stats = [
+    { id: 1, title: "30 Songs", desc: "Cached seamlessly directly inside mobile contexts.", icon: Smartphone },
+    { id: 2, title: "50 Songs", desc: "Expanded partition allocation inside desktop views.", icon: BookOpen },
+    { id: 3, title: "Blazing Fast", desc: "Zero runtime latency with localized local forage engine.", icon: Zap },
+    { id: 4, title: "High Quality", desc: "Bitrate structures optimized for absolute clarity.", icon: Star },
+    { id: 5, title: "Global Access", desc: "Stream cloud repositories free from geoblocks.", icon: Globe }
+  ];
 
-    return (
-        <div className="mt-12"> 
-                <div className="w-[85%] ">
-                    <div className="flex justify-between">
-                    <div className="shrink-0">
-                    <div className="border w-fit px-4 py-2 mb-2 rounded-full border-primary shadow-[0_20px_60px_rgba(255,180,50,0.12)]">
-                        <div className="tracking-widest text-md text-blob-gold">
-                            ABOUT CATCHMUSIC
-                        </div>
-                    </div>
+  return (
+    <section id="about" className="py-20 bg-bg scroll-mt-6">
+      <div className="max-w-7xl mx-auto px-6 lg:px-16 space-y-20">
+        
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-12 border-b border-border pb-16">
+          <div className="max-w-2xl space-y-6">
+            <div className="inline-flex items-center rounded-full border border-border-light bg-surface px-4 py-1.5 shadow-sm">
+              <span className="text-xs font-semibold tracking-widest text-primary uppercase">
+                About CatchMusic
+              </span>
+            </div>
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-pri leading-[1.15]">
+              Limitless Music. <br />
+              <span className="bg-gradient-to-r from-primary via-accent to-primary-hover text-transparent bg-clip-text">
+                No Hassle.
+              </span>
+            </h2>
+            <p className="max-w-md text-base md:text-lg text-sec leading-relaxed tracking-wide">
+              Enjoy your favorite music instantly, anywhere. No interruption. Just pure music.
+            </p>
+          </div>
+          <div className="w-full lg:max-w-md overflow-hidden rounded-2xl border border-border-light bg-bg-sec/50">
+            <img src="about-music.png" alt="Dashboard Core Infrastructure Preview" className="w-full h-auto object-cover opacity-80" />
+          </div>
+        </div>
 
-                    <div className="flex flex-col gap-5">
-                        <div>
-                            <div className="text-6xl mb-1 font-medium whitespace-nowrap">
-                                Limitless Music.
-                            </div>
-
-                            <div className="text-6xl text-blob-gold font-medium whitespace-nowrap">
-                                No Hassle.
-                            </div>
-                        </div>
-
-                        <div className="max-w-[450px] text-sec">
-                            Enjoy your favorite music instantly, anywhere. No interruption. Just pure music.
-                        </div>
-                    </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+          {stats.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.id} className="flex flex-col items-center text-center rounded-2xl border border-border bg-gradient-to-b from-surface to-card p-6 shadow-md hover:border-border-light transition-all duration-300 group">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-bg-ter border border-border-light text-secondary group-hover:text-primary transition-colors duration-300">
+                  <Icon size={22} strokeWidth={1.75} />
                 </div>
-              <div className="shrink-0">
-                    <img
-                        src="about-music.png"
-                        alt=""
-                        className="w-[450px] h-auto object-contain"
-                    />
-                </div>
+                <h3 className="mt-4 font-bold text-base text-pri tracking-wide">{item.title}</h3>
+                <p className="mt-2 text-xs text-sec leading-relaxed">{item.desc}</p>
+              </div>
+            );
+          })}
+        </div>
 
-                </div>
-                </div>
+        <div className="grid lg:grid-cols-12 gap-12 items-center pt-8 border-t border-border">
+          <div className="lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4">
+            <h3 className="text-3xl font-bold tracking-tight text-pri">
+              Your Music <br />
+              <span className="bg-gradient-to-r from-primary to-accent text-transparent bg-clip-text text-4xl font-extrabold">
+                Always with you
+              </span>
+            </h3>
+            <div className="w-full max-w-[280px] overflow-hidden rounded-2xl border border-border-light bg-bg-sec/30 mt-4">
+              <img src="boy2.png" alt="Offline music illustration" className="w-full h-auto object-contain opacity-75" />
+            </div>
+          </div>
 
-                <div>
-                    <div className="flex items-center mt-4 gap-6">
-                
-                <div className="grid grid-cols-5 gap-5">
-                    <div className="flex flex-col border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" h-fit w-fit rounded-full"><Smartphone size={50} className="  text-secondary" /></div>
-
-                    <div className=" flex-1 flex-col text-center break-words ">
-                        <div>30 songs</div>
-                        <div className="text-sec text-wrap">Nearly 30 songs can be cached in your mobile device.</div>
-                    </div>
-                </div>
-                    <div className="flex flex-col border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" h-fit w-fit rounded-full"><BookOpen size={50} className="  text-secondary" /></div>
-
-                    <div className=" flex-1 flex-col text-center break-words ">
-                        <div>50 songs</div>
-                        <div className="text-sec text-wrap">Nearly 30 songs can be cached in your laptop or computers.</div>
-                    </div>
-                </div>
-                    <div className="flex flex-col border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" h-fit w-fit rounded-full"><Zap size={50} className="  text-secondary" /></div>
-
-                    <div className=" flex-1 flex-col text-center break-words ">
-                        <div>Blazing Fast</div>
-                        <div className="text-sec text-wrap">Optimized for speed and seamless streaming.</div>
-                    </div>
-                </div>
-                    <div className="flex flex-col border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" h-fit w-fit rounded-full"><Star size={50} className="  text-secondary" /></div>
-
-                    <div className=" flex-1 flex-col text-center break-words ">
-                        <div>High Quality</div>
-                        <div className="text-sec text-wrap">Crystal clear audio for best experience.</div>
-                    </div>
-                </div>
-                    <div className="flex flex-col border  border-border items-center bg-card p-8 rounded-lg gap-2" >
-                    <div className=" h-fit w-fit rounded-full"><Globe size={50} className="  text-secondary" /></div>
-
-                    <div className=" flex-1 flex-col text-center break-words ">
-                        <div>Global Access</div>
-                        <div className="text-sec text-wrap">Enjoy music from around the world.</div>
-                    </div>
-                </div>
-                </div>
-
-                
-
+          <div className="lg:col-span-7 w-full max-w-xl mx-auto lg:ml-auto rounded-3xl border border-border bg-gradient-to-b from-surface to-card p-6 lg:p-8 shadow-lg relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--glow-gold)] to-transparent opacity-20 pointer-events-none" />
+            
+            <div className="relative z-10 space-y-2 border-b border-border pb-4">
+              <h4 className="text-xl font-bold tracking-tight text-pri">Give a Review</h4>
+              <p className="text-xs text-sec tracking-wide">We would love to hear your architectural insights and features feedback.</p>
             </div>
 
-            <div className="flex p-6 gap-10 justify-center ">
-                    <div className="flex p-8 items-center ">
-                        <div className="flex   ">
-                            
-                            <div className="ml-3">
-                                <div className="text-3xl">Your Music</div>
-                                <div className="text-blob-gold-sec  text-4xl">Always with you</div>
-                            </div>
-                        </div>
-                        <div className="shrink-0"><img src="boy2.png" alt="" className="w-[350]" /> </div>
-                    </div>
-                </div>
-                <div className="flex justify-center  ">
-                    <div className="mt-12  bg-card border border-border w-[70%] py-5 px-5 rounded-xl ">
-                    <div className="">
-                        <div className="text-2xl pb-1 ">Give a Review</div>
-                        <div className="text-sec pt-1 text-sm">We'd love to hear your thoughts and suggestions!</div>
-                    </div>
-
-                    <div className="mt-4  grid ">
-                        <input type="text" placeholder="Your Name" className="bg-black  p-4 rounded-lg border border-border" />
-                        
-                        <textarea rows={3} placeholder="Write your feedback" className="  bg-black border mt-3 p-4 rounded-lg border-border  resize-none" />
-                    
-                    <div className="flex justify-center">
-                        <div className=" mt-3 p-2 w-[50%] rounded-lg border  text-center border-secondary shadow-[0px_20px_60px_rgba(255,180,50,0.12)]  hover:bg-blob-gold-sec hover:text-black hover:scale-105 transition-all duration-300 ease-in-out  cursor-pointer">
-                        <div className=" flex justify-center items-center">
-                            <button className=" text-2xl flex items-center gap-2">
-                                <div>
-                                    <Send/>
-                                </div>
-                                <div>
-                                    Submit
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                    </div>
-                    
-                    </div>
-                </div>
-                </div>
-                
-
-                <div>
-                    
-                </div>
-                </div>
-                
+            <form onSubmit={(e) => e.preventDefault()} className="relative z-10 mt-6 space-y-4">
+              <div className="space-y-1">
+                <input 
+                  type="text" 
+                  placeholder="Your Name" 
+                  className="w-full bg-[var(--background)] px-4 py-3 rounded-xl border border-border-light text-sm text-pri placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors duration-300"
+                />
+              </div>
+              <div className="space-y-1">
+                <textarea 
+                  rows={3} 
+                  placeholder="Write your feedback..." 
+                  className="w-full bg-[var(--background)] px-4 py-3 rounded-xl border border-border-light text-sm text-pri placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] resize-none transition-colors duration-300"
+                />
+              </div>
+              
+              <button className="w-full sm:w-1/2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3 text-black font-semibold text-sm tracking-wide shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 active:scale-[0.98] mx-auto">
+                <Send size={16} strokeWidth={2.25} />
+                <span>Submit Review</span>
+              </button>
+            </form>
+          </div>
         </div>
-    )
+
+      </div>
+    </section>
+  );
 }

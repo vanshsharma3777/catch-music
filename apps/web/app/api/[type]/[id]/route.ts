@@ -45,8 +45,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
         const res = await axios.get(`${process.env.JIO_SAVAAN}/api/${type}/${id}`)
         const data = res.data;
         console.log((data))
-        console.log("data length :", data.data.length)
-        console.log(typeof (data))
+
 
         if (!data) {
             return NextResponse.json({

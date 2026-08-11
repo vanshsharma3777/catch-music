@@ -19,13 +19,15 @@ export const authOptions: NextAuthOptions = {
     session: {
         strategy: "database",
     }, secret: process.env.AUTH_SECRET!,
-    
+
     callbacks: {
-        async session({ session, user }) {
+        async session({ session }) {
             return session;
         },
-        async redirect({ url, baseUrl }) {
-            return `${baseUrl}/`;
-        },
-    }
+
+    },
+    pages: {
+    signIn: '/signin',
+  }
+
 };

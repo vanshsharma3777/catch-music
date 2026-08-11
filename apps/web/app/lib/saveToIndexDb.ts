@@ -1,4 +1,6 @@
-export function saveToIndexedDB(song: any) {
+import { Song } from "../types/songs";
+
+export function saveToIndexedDB(song: Song) {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("music-db", 1);
 
@@ -15,10 +17,10 @@ export function saveToIndexedDB(song: any) {
       const tx = db.transaction("songs", "readwrite");
       const store = tx.objectStore("songs");
 
-      console.log("[DB] Saving metadata:", song.songId);
-
+      console.log("[DB] Saving metadata:", song.id);
+      console.log("song" , song.image)
       store.put({
-        songId: song.songId,
+        songId: song.id,
         name: song.name,
         singerId: song.singerId,
         image: song.image,
@@ -28,7 +30,7 @@ export function saveToIndexedDB(song: any) {
       });
 
       tx.oncomplete = () => {
-        console.log("[DB] Saved:", song.songId);
+        console.log("[DB] Saved:", song.id);
         resolve(true);
       };
 
