@@ -1,75 +1,203 @@
-const CACHE_NAME = "music-cache-v1";
+const APP_CACHE = "catchmusic-app-v1";
+const MUSIC_CACHE = "catchmusic-music-v1";
+const IMAGE_CACHE = "catchmusic-images-v1";
 
-self.addEventListener("install", () => {
-  console.log("SW Installed")
-  self.skipWaiting()
-})
+const OFFLINE_PAGE = "/offline-play";
 
-self.addEventListener("activate", (event) => {
-  console.log("SW Activated")
-  event.waitUntil(self.clients.claim())
-})
+/*
+ * Install
+ */
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(APP_CACHE).then(async (cache) => {
+     console.log("sw installed")
+      await cache.add(OFFLINE_PAGE);
+    })
+  );
 
-self.addEventListener("message", async (event) => {
+  self.skipWaiting();
+});
 
-  console.log("SW received:", event.data)
+/*
+ * Activate
+ */
+ self.addEventListener("activate", (event) => {
+   event.waitUntil(
+     caches.keys().then((cacheNames) => {
+       return Promise.all(
+         cacheNames
+           .filter((cacheName) => {
+             return (
+               cacheName.startsWith("catchmusic-") &&
+               ![
+                 APP_CACHE,
+                 MUSIC_CACHE,
+                 IMAGE_CACHE,
+               ].includes(cacheName)
+             );
+           })
+           .map((cacheName) => caches.delete(cacheName))
+       );
+     })
+   );
 
-  let songs = event.data
+   self.clients.claim();
+ });
 
-  if (!Array.isArray(songs)) {
-    songs = [songs]
-  }
-  const cache = await caches.open(CACHE_NAME);
-
-  for (const song of songs) {
-    try {
-      if (!song.url) {
-        console.log("[SW] Invalid song:", song);
-        continue;
-      }
-
-      const cached = await cache.match(song.url);
-
-      if (cached) {
-        console.log("[SW] Already cached:", song.songId);
-        continue;
-      }
-
-      console.log("[SW] Fetching & caching:", song.songId);
-
-      const response = await fetch(song.url);
-
-      await cache.put(song.url, response.clone());
-
-      console.log("[SW] Cached successfully:", song.songId);
-
-    } catch (err) {
-      console.log("[SW] Cache failed:", err);
-    }
-  }
-})
-
+/*
+ * Fetch handler
+ */
 self.addEventListener("fetch", (event) => {
-  const url = event.request.url;
+  const request = event.request;
 
-  if (url.includes(".mp3") || url.includes(".m4a") || url.includes("audio")) {
-    
+  /*
+   * Only deal with GET requests.
+   */
+  if (request.method !== "GET") {
+    return;
+  }
+
+  const url = new URL(request.url);
+
+  /*
+   * -----------------------------------------
+   * 1. Cached music
+   * -----------------------------------------
+   *
+   * /cached-music/123
+   */
+  if (url.pathname.startsWith("/cached-music/")) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(event.request);
-
-        if (cached) {
-          console.log("[SW] Serving from cache:", url);
-          return cached;
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
         }
 
-        console.log("[SW] Fetching from network:", url);
-
-        const response = await fetch(event.request);
-        cache.put(event.request, response.clone());
-
-        return response;
+        return new Response("Song not found", {
+          status: 404,
+          headers: {
+            "Content-Type": "text/plain",
+          },
+        });
       })
     );
+
+    return;
+  }
+
+  /*
+   * -----------------------------------------
+   * 2. Cached artwork
+   * -----------------------------------------
+   */
+  if (url.pathname.startsWith("/cached-artwork/")) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(request);
+      })
+    );
+
+    return;
+  }
+
+  /*
+   * -----------------------------------------
+   * 3. Navigation requests
+   * -----------------------------------------
+   *
+   * Example:
+   *
+   * /
+   * /offline-play
+   * /search
+   */
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          /*
+           * Save successful page responses.
+           */
+          const responseClone = networkResponse.clone();
+
+          caches.open(APP_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+
+          return networkResponse;
+        })
+        .catch(async () => {
+          /*
+           * Internet failed.
+           *
+           * Return offline page.
+           */
+          const cache = await caches.open(APP_CACHE);
+
+          const offlinePage = await cache.match(OFFLINE_PAGE);
+
+          if (offlinePage) {
+            return offlinePage;
+          }
+
+          return new Response("You are offline.", {
+            status: 503,
+            headers: {
+              "Content-Type": "text/plain",
+            },
+          });
+        })
+    );
+
+    return;
+  }
+
+  /*
+   * -----------------------------------------
+   * 4. JS / CSS / images / fonts
+   * -----------------------------------------
+   *
+   * Runtime cache.
+   */
+  if (
+    request.destination === "script" ||
+    request.destination === "style" ||
+    request.destination === "font" ||
+    request.destination === "image"
+  ) {
+    event.respondWith(
+      caches.match(request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(request)
+          .then((networkResponse) => {
+            /*
+             * Only cache successful responses.
+             */
+            if (networkResponse.ok) {
+              const responseClone = networkResponse.clone();
+
+              caches.open(APP_CACHE).then((cache) => {
+                cache.put(request, responseClone);
+              });
+            }
+
+            return networkResponse;
+          })
+          .catch(() => {
+            return new Response("", {
+              status: 503,
+            });
+          });
+      })
+    );
+
+    return;
   }
 });

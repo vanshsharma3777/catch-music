@@ -42,8 +42,9 @@ export default function HeaderSection() {
         <div className="hidden lg:block">
           <ButtonComponent
             classNameInputs="rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-2.5 text-black font-semibold tracking-wide text-[14px] shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
-            onClick="/start"
+            onClick="/singer-setup"
             buttonInput="Get Started"
+            action="push"
           />
         </div>
         <button
@@ -53,13 +54,13 @@ export default function HeaderSection() {
           <Menu size={24} />
         </button>
         {isOpen && <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" onClick={() => setIsOpen(false)} />}
-        <div 
+        <div
           className={`fixed inset-y-0 right-0 z-50 h-screen w-[300px] border-l border-[var(--border)] bg-[var(--background-secondary)] transition-transform duration-300 ease-in-out lg:hidden shadow-[var(--shadow-lg)] ${
             isOpen ? "translate-x-0" : "translate-x-full"
           }`}
         >
           <div className="flex justify-end p-6">
-            <button 
+            <button
               onClick={() => setIsOpen(false)}
               className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
             >
@@ -81,6 +82,7 @@ export default function HeaderSection() {
                 classNameInputs="w-full text-center rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3 text-black font-semibold tracking-wide shadow-[var(--shadow-premium)]"
                 onClick="/start"
                 buttonInput="Get Started"
+                action="push"
               />
             </div>
           </div>

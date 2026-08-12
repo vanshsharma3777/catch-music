@@ -79,7 +79,7 @@ export default function SingerSelection() {
     localStorage.setItem("catchmusic_preferences", JSON.stringify(selectedSingers));
 
     setTimeout(() => {
-      router.push("/favorite-singers");
+      router.replace("/favorite-singers");
     }, 600);
   };
 

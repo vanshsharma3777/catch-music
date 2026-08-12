@@ -1,99 +1,306 @@
+import { OfflineSong } from "../types/OfflineSong";
 import { Song } from "../types/songs";
 
-const CACHE_NAME = "offline-music-cache-v1";
+const MUSIC_CACHE_NAME = "catchmusic-music-v1";
+const IMAGE_CACHE_NAME = "catchmusic-images-v1";
+
 const MANIFEST_KEY = "offline-music-manifest";
 
-// Utility to fetch or create the manifest list stored in localStorage
-function getManifest(): Record<string, any> {
-  const data = localStorage.getItem(MANIFEST_KEY);
-  return data ? JSON.parse(data) : {};
-}
 
-function setManifest(manifest: Record<string, any>) {
-  localStorage.setItem(MANIFEST_KEY, JSON.stringify(manifest));
-}
+/*
+ * -----------------------------------------
+ * Manifest
+ * -----------------------------------------
+ */
 
-export async function getAllSongs(): Promise<any[]> {
+function getManifest(): Record<string, OfflineSong> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
   try {
-    const manifest = getManifest();
-    const songs = Object.values(manifest);
-    console.log(`[CacheStorage] Retrieved ${songs.length} track(s) from Cache Storage.`);
-    return songs;
-  } catch (err) {
-    console.error(`[CacheStorage] Failed to fetch cached songs:`, err);
-    return [];
+    const data = localStorage.getItem(MANIFEST_KEY);
+
+    return data ? JSON.parse(data) : {};
+  } catch (error) {
+    console.error("Failed to read offline manifest:", error);
+    return {};
   }
 }
 
-export async function getCachedSongIds(): Promise<string[]> {
+function setManifest(manifest: Record<string, OfflineSong>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  localStorage.setItem(
+    MANIFEST_KEY,
+    JSON.stringify(manifest)
+  );
+}
+
+/*
+ * -----------------------------------------
+ * Get all offline songs
+ * -----------------------------------------
+ */
+
+export function getAllSongs(): OfflineSong[] {
   const manifest = getManifest();
-  const ids = Object.keys(manifest);
-  console.log(`[CacheStorage] Cached Song IDs:`, ids);
-  return ids;
+
+  return Object.values(manifest);
 }
 
-export async function toggleCacheSong(song: Song, isCached: boolean): Promise<boolean> {
-  const songId = song.id;
+/*
+ * -----------------------------------------
+ * Get cached song IDs
+ * -----------------------------------------
+ */
+
+export function getCachedSongIds(): string[] {
+  const manifest = getManifest();
+
+  return Object.keys(manifest);
+}
+
+/*
+ * -----------------------------------------
+ * Check if song exists
+ * -----------------------------------------
+ */
+
+export function isSongCached(songId: string): boolean {
+  const manifest = getManifest();
+
+  return Boolean(manifest[songId]);
+}
+
+/*
+ * -----------------------------------------
+ * Cache a song
+ * -----------------------------------------
+ */
+
+export async function cacheSong(
+  song: Song
+): Promise<boolean> {
+  const songId = String(song.id);
 
   try {
-    const cache = await caches.open(CACHE_NAME);
+    const audioUrl = Array.isArray(song.downloadUrl)
+      ? song.downloadUrl[song.downloadUrl.length - 1]?.url
+      : song.url || song.downloadUrl;
+
+    if (!audioUrl) {
+      throw new Error("Audio URL unavailable");
+    }
+
+    /*
+     * Open music cache.
+     */
+    const musicCache = await caches.open(
+      MUSIC_CACHE_NAME
+    );
+
+    /*
+     * Our own predictable cache key.
+     */
+    const cacheKey = `/cached-music/${songId}`;
+
+    /*
+     * Download music.
+     */
+    console.log(
+      `[Offline] Downloading song: ${song.name || song.title}`
+    );
+
+    const response = await fetch(audioUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download audio: ${response.status}`
+      );
+    }
+
+    /*
+     * Store MP3 in Cache Storage.
+     */
+    await musicCache.put(
+      cacheKey,
+      response.clone()
+    );
+
+    /*
+     * -----------------------------------------
+     * Artwork
+     * -----------------------------------------
+     */
+
+    let imageCacheKey: string | undefined;
+
+    const imageUrl = Array.isArray(song.image)
+      ? song.image[song.image.length - 1]?.url
+      : song.image;
+
+    if (imageUrl) {
+      try {
+        const imageCache = await caches.open(
+          IMAGE_CACHE_NAME
+        );
+
+        imageCacheKey = `/cached-artwork/${songId}`;
+
+        const imageResponse = await fetch(imageUrl);
+
+        if (imageResponse.ok) {
+          await imageCache.put(
+            imageCacheKey,
+            imageResponse.clone()
+          );
+        }
+      } catch (error) {
+        /*
+         * Artwork failure should NOT make
+         * music download fail.
+         */
+        console.warn(
+          "[Offline] Artwork download failed:",
+          error
+        );
+      }
+    }
+
+    /*
+     * -----------------------------------------
+     * Save metadata
+     * -----------------------------------------
+     */
+
     const manifest = getManifest();
 
-    if (isCached) {
-      console.log(`[CacheStorage] Removing track ID: "${songId}"...`);
+    manifest[songId] = {
+      songId,
+      id: songId,
 
-      const songData = manifest[songId];
-      if (songData?.url) {
-        await cache.delete(songData.url); // Delete request from Cache Storage
-      }
+      name: song.name,
 
-      delete manifest[songId];
-      setManifest(manifest);
+      artistName:
+        song.artistName ||
+        song.primaryArtists,
 
-      console.log(`[CacheStorage] Successfully deleted track ID: "${songId}".`);
-      return false; // Returns new cached state
-    } else {
-      console.log(`[CacheStorage] Caching track: "${song.name || song.title}" (ID: ${songId})...`);
+      image:
+        imageUrl ||
+        "/placeholder-music.png",
 
-      const audioUrl = Array.isArray(song.downloadUrl)
-        ? song.downloadUrl[song.downloadUrl.length - 1]?.url
-        : song.url || song.downloadUrl;
+      duration: song.duration,
 
-      if (!audioUrl) {
-        throw new Error("Audio URL unavailable");
-      }
+      label: song.label,
 
-      // Fetch and put the raw Request/Response into Cache Storage
-      const response = await fetch(audioUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      cacheKey,
 
-      // Store a clone in Cache Storage
-      await cache.put(audioUrl, response.clone());
+      imageCacheKey,
+    };
 
-      const imageUrl = Array.isArray(song.image)
-        ? song.image[song.image.length - 1]?.url
-        : song.image;
+    setManifest(manifest);
 
-      // Store metadata in manifest
-      manifest[songId] = {
-        songId,
-        id: songId,
-        name: song.name || song.title,
-        artistName: song.artistName || song.primaryArtists,
-        image: imageUrl || "/placeholder-music.png",
-        url: audioUrl,
-        duration: song.duration,
-        label: song.label,
-      };
+    console.log(
+      `[Offline] Song cached successfully: ${songId}`
+    );
 
-      setManifest(manifest);
-      console.log(`[CacheStorage] Successfully cached track ID: "${songId}".`);
-      return true; // Returns new cached state
-    }
-  } catch (err) {
-    console.error(`[CacheStorage] toggleCacheSong failed for ID "${songId}":`, err);
-    throw err;
+    return true;
+  } catch (error) {
+    console.error(
+      `[Offline] Failed to cache song ${songId}:`,
+      error
+    );
+
+    throw error;
   }
+}
+
+/*
+ * -----------------------------------------
+ * Remove song
+ * -----------------------------------------
+ */
+
+export async function removeCachedSong(
+  songId: string
+): Promise<boolean> {
+  try {
+    const manifest = getManifest();
+
+    const song = manifest[songId];
+
+    if (!song) {
+      return false;
+    }
+
+    /*
+     * Delete MP3.
+     */
+    const musicCache = await caches.open(
+      MUSIC_CACHE_NAME
+    );
+
+    await musicCache.delete(
+      song.cacheKey
+    );
+
+    /*
+     * Delete artwork.
+     */
+    if (song.imageCacheKey) {
+      const imageCache = await caches.open(
+        IMAGE_CACHE_NAME
+      );
+
+      await imageCache.delete(
+        song.imageCacheKey
+      );
+    }
+
+    /*
+     * Remove metadata.
+     */
+    delete manifest[songId];
+
+    setManifest(manifest);
+
+    console.log(
+      `[Offline] Removed song: ${songId}`
+    );
+
+    return true;
+  } catch (error) {
+    console.error(
+      `[Offline] Failed to remove song ${songId}:`,
+      error
+    );
+
+    throw error;
+  }
+}
+
+/*
+ * -----------------------------------------
+ * Toggle
+ * -----------------------------------------
+ */
+
+export async function toggleCacheSong(
+  song: Song,
+  isCached: boolean
+): Promise<boolean> {
+  if (isCached) {
+    await removeCachedSong(
+      String(song.id)
+    );
+
+    return false;
+  }
+
+  await cacheSong(song);
+
+  return true;
 }
