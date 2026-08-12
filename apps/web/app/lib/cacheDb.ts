@@ -181,7 +181,6 @@ export async function cacheSong(
     manifest[songId] = {
       songId,
       id: songId,
-
       name: song.name,
 
       artistName:

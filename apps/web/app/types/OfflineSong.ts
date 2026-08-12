@@ -1,7 +1,6 @@
 
 export interface OfflineSong {
   songId: string;
-  singerId: string;
   id: string;
 
   name: string;

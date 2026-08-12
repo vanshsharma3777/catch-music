@@ -8,7 +8,7 @@ import { Song } from "../types/songs";
 import { getAllSongs, toggleCacheSong } from "../lib/cacheDb";
 
 export default function OfflinePage() {
-  const [offlineSongs, setOfflineSongs] = useState<Song[]>([]);
+  const [offlineSongs, setOfflineSongs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Audio Player State
