@@ -144,27 +144,27 @@ function FavoriteSingersContent() {
 
   // Load preferences / URL parameters
   useEffect(() => {
-    let artists: Singer[] = [];
+    let singers: Singer[] = [];
     const singersParam = searchParams.get("singers");
 
     if (singersParam) {
       const ids = singersParam.split(",");
-      artists = SINGER_DATABASE.filter((s) => ids.includes(s.id));
+      singers = SINGER_DATABASE.filter((s) => ids.includes(s.id));
     } else {
       const stored = localStorage.getItem("catchmusic_preferences");
       if (stored) {
         try {
-          artists = JSON.parse(stored);
+          singers = JSON.parse(stored);
         } catch (e) {
           console.error("Failed to parse preferences from localStorage:", e);
         }
       }
     }
 
-    setSelectedSingers(artists);
+    setSelectedSingers(singers);
 
-    if (artists.length > 0) {
-      fetchSongsGroupedBySinger(artists);
+    if (singers.length > 0) {
+      fetchSongsGroupedBySinger(singers);
     } else {
       setIsLoading(false);
     }
@@ -229,48 +229,74 @@ function FavoriteSingersContent() {
     }
   };
 
-  const fetchSongsGroupedBySinger = async (artists: Singer[]) => {
-    setIsLoading(true);
-    setError(null);
+const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      const validArtists = artists.filter(
-        (artist) => artist?.name && artist.name.trim() !== ""
-      );
+  try {
+    const validArtists = singers.filter(
+      (singer) => singer?.name && singer.name.trim() !== ""
+    );
 
-      const requests = validArtists.map((artist) => {
-        const payload = { query: artist.name.trim(), limit: 12 };
+    const requests = validArtists.map(async (singer: Singer) => {
 
-        return axios
-          .post("/api/search/songs", payload, {
-            headers: { "Content-Type": "application/json" },
-          })
-          .then((response) => {
-            const resData = response.data;
-            if (resData.success && Array.isArray(resData.data)) {
-              const mappedSongs = resData.data.map((song: Song) => ({
-                ...song,
-                artistName: artist.name,
-              }));
-              return { singer: artist, songs: mappedSongs };
-            }
-            return { singer: artist, songs: [] };
-          })
-          .catch((error) => {
-            console.warn(`[API Warning] Failed to fetch songs for ${artist.name}:`, error?.response?.data || error.message);
-            return { singer: artist, songs: [] };
-          });
-      });
+      const payload = {
+        query: singer.name.trim(),
+        limit: 25,
+      };
 
-      const results = await Promise.all(requests);
-      setGroupedSongs(results);
-    } catch (err) {
-      console.error("[Axios Error] Failed to fetch grouped songs:", err);
-      setError("Failed to load tracks. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      try {
+        const response = await axios.post(
+          "/api/search/songs",
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        const resData = response.data;
+
+        if (resData.success && Array.isArray(resData.data)) {
+          const mappedSongs = resData.data.map((song: Song) => ({
+            ...song,
+            artistName: singer.name,
+          }));
+
+          return {
+            singer: singer,
+            songs: mappedSongs,
+          };
+        }
+
+        return {
+          singer: singer,
+          songs: [],
+        };
+      } catch (error: any) {
+        console.warn(
+          `[API Warning] Failed to fetch songs for ${singer.name}:`,
+          error?.response?.data || error.message
+        );
+
+        return {
+          singer: singer,
+          songs: [],
+        };
+      }
+    });
+
+    const results = await Promise.all(requests);
+
+    setGroupedSongs(results);
+  } catch (err) {
+    console.error("[Axios Error] Failed to fetch grouped songs:", err);
+    setError("Failed to load tracks. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   const playTrack = (song: Song) => {
     const audioUrl = getAudioUrl(song);

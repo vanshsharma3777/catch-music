@@ -9,89 +9,146 @@ import { storeToDb } from "@repo/queue";
 import { storeArtists } from "../../../lib/storeArtists";
 import { storeSongs } from "../../../lib/storeSongs";
 import { storeAlbums } from "../../../lib/storeAlbums";
+import { Song } from "../../../types/songs";
+import { getSongFingerprint } from "../../../lib/getSongFingerprint";
+import { deduplicateSongs } from "../../../lib/deduplicateSongs";
+import { redis } from "../../../lib/config/redis";
 
-export async function POST(request: NextRequest, context: { params: Promise<{ type: string }> }) {
-    const { type } = await context.params
-    if (!type || type.trim().length === 0) {
-        return NextResponse.json({
-            success: false,
-            error: "Params not found!"
-        }, { status: 401 })
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ type: string }> },
+) {
+  const { type } = await context.params;
+  if (!type || type.trim().length === 0) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Params not found!",
+      },
+      { status: 401 },
+    );
+  }
+  console.log("params :", type);
+
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Unauthorized!",
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    const email = session.user?.email;
+    if (!email) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User email not found! Login again",
+        },
+        { status: 400 },
+      );
     }
-    console.log("params :", type)
 
-    const session = await getServerSession(authOptions);
-    if (!session) {
-        return NextResponse.json({
-            success: false,
-            error: "Unauthorized!"
-        }, { status: 400 })
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email));
+    if (existingUser.length === 0) {
+      console.log("User not found");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "User email not found! Login again",
+        },
+        { status: 400 },
+      );
     }
 
-    try {
-        const email = session.user?.email;
-        if (!email) {
-            return NextResponse.json({
-                success: false,
-                error: "User email not found! Login again"
-            }, { status: 400 })
-        }
-
-        const existingUser = await db.select().from(users).where(eq(users.email, email))
-        if (existingUser.length === 0) {
-            console.log("User not found")
-            return NextResponse.json({
-                success: false,
-                error: "User email not found! Login again"
-            }, { status: 400 })
-        }
-
-        const { query, limit } = await request.json();
-        if (!query || query.trim().length === 0 || isNaN(limit)) {
-            return NextResponse.json({
-                success: false,
-                error: "Query not found"
-            }, { status: 401 })
-        }
-        console.log("came in /search/type")
-        console.log(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
-        const res = await axios.get(`${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`)
-        const data = res.data;
-
-        if (type === "artists") {
-            console.log("hit this ")
-            storeArtists(data.data.results[0].id)
-            return NextResponse.json({
-                success: true,
-                data: data.data.results[0],
-            })
-        } else if (type === "songs") {
-            const finalSongs = data.data.results
-            console.log("calling storeSongs worker")
-            storeSongs(finalSongs)
-            return NextResponse.json({
-                success: true,
-                data: data.data.results,
-            })
-        } else if(type==="albums"){
-            console.log("inside album function")
-            const finalAlbums = data.data.results
-            console.log("albums sending to worker" , finalAlbums)
-            storeAlbums(finalAlbums)
-            return NextResponse.json({
-                success:true,
-                data: finalAlbums
-            })
-        }
-        return NextResponse.json({
-            success: true,
-            data: data.data.results,
-        })
-    } catch (error: any) {
-        console.log("Error in /api/search :", error);
-        return NextResponse.json({
-            success: false,
-            error: "internal server error"
-        })
+    const { query, limit } = await request.json();
+    if (!query || query.trim().length === 0 || isNaN(limit)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Query not found",
+        },
+        { status: 401 },
+      );
     }
+    console.log("came in /search/type");
+
+    const normalizedQuery = query.trim().toLowerCase();
+    if (type === "songs") {
+      const cacheKey = `songs:${normalizedQuery}`;
+
+      const cachedSongs = await redis.get<Song[]>(cacheKey);
+
+      if (cachedSongs) {
+        console.log("Redis HIT:", cacheKey);
+
+        return NextResponse.json({
+          success: true,
+          data: cachedSongs,
+          source: "redis",
+        });
+      }
+
+      console.log("Redis MISS:", cacheKey);
+    }
+
+    console.log("Making API call for new songs");
+
+    const res = await axios.get(
+      `${process.env.JIO_SAVAAN}/api/search/${type}?query=${encodeURIComponent(query.trim())}&limit=${limit}`,
+    );
+    const data = res.data;
+
+    if (type === "artists") {
+      console.log("hit this ");
+      storeArtists(data.data.results[0].id);
+      return NextResponse.json({
+        success: true,
+        data: data.data.results[0],
+      });
+    } else if (type === "songs") {
+      const finalSongs = data.data.results;
+      console.log("calling storeSongs worker");
+
+      const filteredSongs = await deduplicateSongs(finalSongs);
+      const cacheKey = `songs:${normalizedQuery}`;
+
+      await redis.set(cacheKey, filteredSongs, {
+        ex: 60 * 60 * 24,
+      });
+      console.log("Redis SET:", cacheKey);
+
+      storeSongs(filteredSongs);
+      return NextResponse.json({
+        success: true,
+        data: filteredSongs,
+      });
+    } else if (type === "albums") {
+      console.log("inside album function");
+      const finalAlbums = data.data.results;
+      console.log("albums sending to worker", finalAlbums);
+      storeAlbums(finalAlbums);
+      return NextResponse.json({
+        success: true,
+        data: finalAlbums,
+      });
+    }
+    return NextResponse.json({
+      success: true,
+      data: data.data.results,
+    });
+  } catch (error: any) {
+    console.log("Error in /api/search :", error);
+    return NextResponse.json({
+      success: false,
+      error: "internal server error",
+    });
+  }
 }
