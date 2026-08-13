@@ -21,8 +21,7 @@ function FavoriteSingersContent() {
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [storageWarning, setStorageWarning] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [remainingStorage, setRemainingStorage] = useState<number | null>(null);  const [error, setError] = useState<string | null>(null);
 
   // Cache Management State
   const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
@@ -171,11 +170,12 @@ function FavoriteSingersContent() {
   }, [searchParams]);
 
   const verifyStorageCapacity = async () => {
-    await checkStorageQuota((status) => {
-      setStorageWarning(
-        `Warning: Storage space is critical (${status.remainingMB} MB remaining). Clear cache to save new tracks.`
-      );
-    });
+    const status = await checkStorageQuota();
+
+    if (status) {
+      setRemainingStorage(status.remainingMB);
+      console.log(status.remainingMB )
+    }
   };
 
   const flatPlaylist = useMemo(() => {
@@ -210,12 +210,17 @@ function FavoriteSingersContent() {
 
       setCachedSongIds((prev) => {
         const updated = new Set(prev);
-        if (isNowCached) updated.add(songId);
-        else updated.delete(songId);
+
+        if (isNowCached) {
+          updated.add(songId);
+        } else {
+          updated.delete(songId);
+        }
+
         return updated;
       });
 
-      // Re-verify storage state after adding/removing cached item
+      // Get new remaining storage
       await verifyStorageCapacity();
     } catch (err) {
       console.error("Failed to update track cache status:", err);
@@ -433,25 +438,25 @@ const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
 
       <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
-        {storageWarning && (
-          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs sm:text-sm font-medium flex items-center justify-between">
-            <span>{storageWarning}</span>
-            <button
-              onClick={() => setStorageWarning(null)}
-              className="text-xs text-red-300 hover:text-white underline ml-4"
-            >
-              Dismiss
-            </button>
-          </div>
-        )}
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
           <div className="space-y-2">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-pri">
               Your Artist <span className="text-accent">Shelves</span>
             </h1>
+
             <p className="text-xs sm:text-sm text-sec max-w-xl">
               Curated songs categorized singer by singer.
             </p>
+          </div>
+
+          <div className="text-sm text-sec">
+            <span className="font-medium">Available storage:</span>{" "}
+            <span className="text-accent font-bold">
+              {remainingStorage === null
+                ? "Checking..."
+                : `${remainingStorage.toFixed(2)} MB`}
+            </span>
           </div>
         </div>
 
