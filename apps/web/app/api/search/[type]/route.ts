@@ -10,7 +10,6 @@ import { storeArtists } from "../../../lib/storeArtists";
 import { storeSongs } from "../../../lib/storeSongs";
 import { storeAlbums } from "../../../lib/storeAlbums";
 import { Song } from "../../../types/songs";
-import { getSongFingerprint } from "../../../lib/getSongFingerprint";
 import { deduplicateSongs } from "../../../lib/deduplicateSongs";
 import { redis } from "../../../lib/config/redis";
 
@@ -121,7 +120,7 @@ export async function POST(
       const cacheKey = `songs:${normalizedQuery}`;
 
       await redis.set(cacheKey, filteredSongs, {
-        ex: 60 * 60 * 24,
+        ex: 60 * 60 * 24 * 7,
       });
       console.log("Redis SET:", cacheKey);
 
