@@ -1,12 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Music4, ArrowRight } from "lucide-react"
-import { signIn } from "next-auth/react"
+import { signIn, useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
-    const handleLogin = async () => {
+  const { status } = useSession()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (status === "authenticated") {
+      router.replace("/")
+    }
+  }, [status, router])
+
+  const handleLogin = async () => {
     try {
       setIsLoading(true)
       await signIn("google", { callbackUrl: "/" })
@@ -15,6 +25,7 @@ export default function LoginPage() {
       setIsLoading(false)
     }
   }
+
   return (
     <div className="min-h-screen bg-[var(--background)] flex items-center justify-center px-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--glow-gold),transparent_60%)] pointer-events-none" />
@@ -39,7 +50,7 @@ export default function LoginPage() {
           <button
             onClick={handleLogin}
             disabled={isLoading}
-            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[var(--border-light)] bg-[var(--input-bg)] px-5 py-3.5 text-[var(--text-primary)] font-medium text-sm tracking-wide transition-all duration-300 hover:bg-[var(--card-hover)] hover:border-[var(--text-muted)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none group shadow-[var(--shadow-sm)]"
+            className="w-full flex items-center justify-center gap-3 rounded-xl border border-[var(--border-light)] bg-[var(--input-bg)] px-5 py-3.5 text-[var(--text-primary)] font-medium text-sm tracking-wide transition-all duration-300 hover:bg-[var(--card-hover)] hover:border-[var(--text-muted)] active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none group shadow-[var(--shadow-sm)] cursor-pointer"
           >
             <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24">
               <path

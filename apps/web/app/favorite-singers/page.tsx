@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { Play, Pause, Music2, RefreshCw, BookmarkCheck, BookmarkPlus } from "lucide-react";
+import { Play, Pause, Music2, RefreshCw, BookmarkCheck, BookmarkPlus, Home } from "lucide-react";
 import { SINGER_DATABASE, Singer } from "../lib/singersDB";
 import FullscreenPlayer from "../../components/FullscreenPlayer";
 import SmallScreenPlayer from "../../components/SmallScreenPlayer";
 import { Song } from "../types/songs";
 import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
 import { checkStorageQuota } from "../lib/estimateStorage";
+import { addRecentSong } from "../lib/recentSongs";
+
 
 interface SingerSongsMap {
   singer: Singer;
@@ -17,11 +19,13 @@ interface SingerSongsMap {
 }
 
 function FavoriteSingersContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [remainingStorage, setRemainingStorage] = useState<number | null>(null);  const [error, setError] = useState<string | null>(null);
+  const [remainingStorage, setRemainingStorage] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   // Cache Management State
   const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
@@ -174,7 +178,7 @@ function FavoriteSingersContent() {
 
     if (status) {
       setRemainingStorage(status.remainingMB);
-      console.log(status.remainingMB )
+      console.log(status.remainingMB);
     }
   };
 
@@ -185,13 +189,11 @@ function FavoriteSingersContent() {
   const handleToggleCache = async (e: React.MouseEvent, song: Song) => {
     e.stopPropagation();
 
-    // Prevent starting a new caching operation while one is in progress
     if (isCachingAny) return;
 
     const songId = song.id;
     const isCurrentlyCached = cachedSongIds.has(songId);
 
-    // Pre-flight check before caching a new track
     if (!isCurrentlyCached) {
       const status = await checkStorageQuota();
       if (status && status.isLowStorage) {
@@ -220,7 +222,6 @@ function FavoriteSingersContent() {
         return updated;
       });
 
-      // Get new remaining storage
       await verifyStorageCapacity();
     } catch (err) {
       console.error("Failed to update track cache status:", err);
@@ -234,74 +235,72 @@ function FavoriteSingersContent() {
     }
   };
 
-const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
-  setIsLoading(true);
-  setError(null);
+  const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
+    setIsLoading(true);
+    setError(null);
 
-  try {
-    const validArtists = singers.filter(
-      (singer) => singer?.name && singer.name.trim() !== ""
-    );
+    try {
+      const validArtists = singers.filter(
+        (singer) => singer?.name && singer.name.trim() !== ""
+      );
 
-    const requests = validArtists.map(async (singer: Singer) => {
+      const requests = validArtists.map(async (singer: Singer) => {
+        const payload = {
+          query: singer.name.trim(),
+          limit: 25,
+        };
 
-      const payload = {
-        query: singer.name.trim(),
-        limit: 25,
-      };
+        try {
+          const response = await axios.post(
+            "/api/search/songs",
+            payload,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
 
-      try {
-        const response = await axios.post(
-          "/api/search/songs",
-          payload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
+          const resData = response.data;
+
+          if (resData.success && Array.isArray(resData.data)) {
+            const mappedSongs = resData.data.map((song: Song) => ({
+              ...song,
+              artistName: singer.name,
+            }));
+
+            return {
+              singer: singer,
+              songs: mappedSongs,
+            };
           }
-        );
-
-        const resData = response.data;
-
-        if (resData.success && Array.isArray(resData.data)) {
-          const mappedSongs = resData.data.map((song: Song) => ({
-            ...song,
-            artistName: singer.name,
-          }));
 
           return {
             singer: singer,
-            songs: mappedSongs,
+            songs: [],
+          };
+        } catch (error: any) {
+          console.warn(
+            `[API Warning] Failed to fetch songs for ${singer.name}:`,
+            error?.response?.data || error.message
+          );
+
+          return {
+            singer: singer,
+            songs: [],
           };
         }
+      });
 
-        return {
-          singer: singer,
-          songs: [],
-        };
-      } catch (error: any) {
-        console.warn(
-          `[API Warning] Failed to fetch songs for ${singer.name}:`,
-          error?.response?.data || error.message
-        );
-
-        return {
-          singer: singer,
-          songs: [],
-        };
-      }
-    });
-
-    const results = await Promise.all(requests);
-
-    setGroupedSongs(results);
-  } catch (err) {
-    console.error("[Axios Error] Failed to fetch grouped songs:", err);
-    setError("Failed to load tracks. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+      const results = await Promise.all(requests);
+      setGroupedSongs(results);
+    } catch (err) {
+      console.error("[Axios Error] Failed to fetch grouped songs:", err);
+      setError("Failed to load tracks. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const playTrack = (song: Song) => {
     const audioUrl = getAudioUrl(song);
@@ -324,6 +323,9 @@ const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
     setAudioElement(newAudio);
     setCurrentSong(song);
     setIsPlaying(true);
+
+    // Save to recently played list
+    addRecentSong(song);
   };
 
   const handlePlaySong = (song: Song) => {
@@ -438,7 +440,6 @@ const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
 
       <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
-
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
           <div className="space-y-2">
             <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-pri">
@@ -450,13 +451,23 @@ const fetchSongsGroupedBySinger = async (singers: Singer[]) => {
             </p>
           </div>
 
-          <div className="text-sm text-sec">
-            <span className="font-medium">Available storage:</span>{" "}
-            <span className="text-accent font-bold">
-              {remainingStorage === null
-                ? "Checking..."
-                : `${remainingStorage.toFixed(2)} MB`}
-            </span>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => router.push("/home")}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-pri transition-colors cursor-pointer"
+            >
+              <Home size={14} className="text-accent" />
+              <span>Back to Home</span>
+            </button>
+
+            <div className="text-sm text-sec">
+              <span className="font-medium">Available storage:</span>{" "}
+              <span className="text-accent font-bold">
+                {remainingStorage === null
+                  ? "Checking..."
+                  : `${remainingStorage.toFixed(2)} MB`}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -7,12 +7,6 @@ const IMAGE_CACHE_NAME = "catchmusic-images-v1";
 const MANIFEST_KEY = "offline-music-manifest";
 
 
-/*
- * -----------------------------------------
- * Manifest
- * -----------------------------------------
- */
-
 function getManifest(): Record<string, OfflineSong> {
   if (typeof window === "undefined") {
     return {};
@@ -39,47 +33,22 @@ function setManifest(manifest: Record<string, OfflineSong>) {
   );
 }
 
-/*
- * -----------------------------------------
- * Get all offline songs
- * -----------------------------------------
- */
-
 export function getAllSongs(): OfflineSong[] {
   const manifest = getManifest();
 
   return Object.values(manifest);
 }
-
-/*
- * -----------------------------------------
- * Get cached song IDs
- * -----------------------------------------
- */
-
 export function getCachedSongIds(): string[] {
   const manifest = getManifest();
 
   return Object.keys(manifest);
 }
 
-/*
- * -----------------------------------------
- * Check if song exists
- * -----------------------------------------
- */
-
 export function isSongCached(songId: string): boolean {
   const manifest = getManifest();
 
   return Boolean(manifest[songId]);
 }
-
-/*
- * -----------------------------------------
- * Cache a song
- * -----------------------------------------
- */
 
 export async function cacheSong(
   song: Song
@@ -95,21 +64,12 @@ export async function cacheSong(
       throw new Error("Audio URL unavailable");
     }
 
-    /*
-     * Open music cache.
-     */
     const musicCache = await caches.open(
       MUSIC_CACHE_NAME
     );
 
-    /*
-     * Our own predictable cache key.
-     */
     const cacheKey = `/cached-music/${songId}`;
 
-    /*
-     * Download music.
-     */
     console.log(
       `[Offline] Downloading song: ${song.name || song.title}`
     );
@@ -122,22 +82,13 @@ export async function cacheSong(
       );
     }
 
-    /*
-     * Store MP3 in Cache Storage.
-     */
     await musicCache.put(
       cacheKey,
       response.clone()
     );
 
-    /*
-     * -----------------------------------------
-     * Artwork
-     * -----------------------------------------
-     */
 
     let imageCacheKey: string | undefined;
-
     const imageUrl = Array.isArray(song.image)
       ? song.image[song.image.length - 1]?.url
       : song.image;
@@ -159,22 +110,13 @@ export async function cacheSong(
           );
         }
       } catch (error) {
-        /*
-         * Artwork failure should NOT make
-         * music download fail.
-         */
+
         console.warn(
           "[Offline] Artwork download failed:",
           error
         );
       }
     }
-
-    /*
-     * -----------------------------------------
-     * Save metadata
-     * -----------------------------------------
-     */
 
     const manifest = getManifest();
 
@@ -217,12 +159,6 @@ export async function cacheSong(
   }
 }
 
-/*
- * -----------------------------------------
- * Remove song
- * -----------------------------------------
- */
-
 export async function removeCachedSong(
   songId: string
 ): Promise<boolean> {
@@ -235,9 +171,6 @@ export async function removeCachedSong(
       return false;
     }
 
-    /*
-     * Delete MP3.
-     */
     const musicCache = await caches.open(
       MUSIC_CACHE_NAME
     );
@@ -246,9 +179,6 @@ export async function removeCachedSong(
       song.cacheKey
     );
 
-    /*
-     * Delete artwork.
-     */
     if (song.imageCacheKey) {
       const imageCache = await caches.open(
         IMAGE_CACHE_NAME
@@ -259,9 +189,6 @@ export async function removeCachedSong(
       );
     }
 
-    /*
-     * Remove metadata.
-     */
     delete manifest[songId];
 
     setManifest(manifest);
@@ -281,11 +208,6 @@ export async function removeCachedSong(
   }
 }
 
-/*
- * -----------------------------------------
- * Toggle
- * -----------------------------------------
- */
 
 export async function toggleCacheSong(
   song: Song,

@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import axios from "axios";
 import { Music4, ArrowRight, ArrowDown, Search, X } from "lucide-react";
 import { SINGER_DATABASE, Singer } from "../app/lib/singersDB";
 import SingerCard from "./SingerCard";
 
 export default function SingerSelection() {
   const router = useRouter();
-  const ITEMS_PER_PAGE = 12; // Increased to fill larger grid space nicely
+  const { data: session, status } = useSession();
+  const ITEMS_PER_PAGE = 12;
 
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -19,6 +22,28 @@ export default function SingerSelection() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const categories = ["Hindi", "English", "Haryanvi", "Bhojpuri"];
+
+  // Redirect to sign in if not logged in
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      router.replace("/signin");
+    }
+  }, [status, router]);
+
+  // Load existing preferences if available
+  useEffect(() => {
+    const stored = localStorage.getItem("catchmusic_preferences");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSelectedIds(parsed.map((p: any) => String(p.id)));
+        }
+      } catch (e) {
+        console.error("Failed to parse local preferences:", e);
+      }
+    }
+  }, []);
 
   // Filter and sort singers
   const filteredSingers = SINGER_DATABASE.filter((singer) => {
@@ -75,12 +100,20 @@ export default function SingerSelection() {
     const selectedSingers = SINGER_DATABASE.filter((s) =>
       selectedIds.includes(s.id)
     );
-    console.log("singers selected" , selectedSingers)
+    console.log("singers selected", selectedSingers);
     localStorage.setItem("catchmusic_preferences", JSON.stringify(selectedSingers));
+
+    try {
+      await axios.post("/api/user/preferences", {
+        favoriteSingers: selectedSingers,
+      });
+    } catch (err) {
+      console.error("Failed to sync preferences to server:", err);
+    }
 
     setTimeout(() => {
       router.replace("/favorite-singers");
-    }, 600);
+    }, 400);
   };
 
   const getSortIcon = (field: "followers" | "rating") => {

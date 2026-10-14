@@ -13,7 +13,6 @@ const audioRef = useRef<HTMLAudioElement>(null);
         src="/despacito.mp3"
       />
 
-      {/* Your UI */}
     </>
   );
 }

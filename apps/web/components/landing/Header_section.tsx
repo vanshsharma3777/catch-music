@@ -3,9 +3,11 @@
 import { useState } from "react"
 import { Menu, X, Music4 } from "lucide-react"
 import ButtonComponent from "../Button"
+import { useSession } from "next-auth/react"
 
 export default function HeaderSection() {
   const [isOpen, setIsOpen] = useState(false)
+  const { data: session } = useSession()
 
   const scrollToSection = (id: string) => {
     document.getElementById(id)?.scrollIntoView({
@@ -41,9 +43,9 @@ export default function HeaderSection() {
         </nav>
         <div className="hidden lg:block">
           <ButtonComponent
-            classNameInputs="rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-2.5 text-black font-semibold tracking-wide text-[14px] shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
-            onClick="/singer-setup"
-            buttonInput="Get Started"
+            classNameInputs="rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-2.5 text-black font-semibold tracking-wide text-[14px] shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 cursor-pointer"
+            onClick={session ? "/home" : "/signin"}
+            buttonInput={session ? "Open Music" : "Sign In"}
             action="push"
           />
         </div>
@@ -79,9 +81,9 @@ export default function HeaderSection() {
             ))}
             <div className="pt-6">
               <ButtonComponent
-                classNameInputs="w-full text-center rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3 text-black font-semibold tracking-wide shadow-[var(--shadow-premium)]"
-                onClick="/start"
-                buttonInput="Get Started"
+                classNameInputs="w-full text-center rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3 text-black font-semibold tracking-wide shadow-[var(--shadow-premium)] cursor-pointer"
+                onClick={session ? "/home" : "/signin"}
+                buttonInput={session ? "Open Music" : "Sign In"}
                 action="push"
               />
             </div>

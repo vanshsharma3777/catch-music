@@ -30,6 +30,14 @@ export const users = pgTable("user", {
   image: text("image"),
 
   username: text("username").unique(),
+  favoriteSingers: jsonb("favorite_singers").$type<{
+    id: string;
+    name: string;
+    image?: string;
+    genre?: string;
+    categories?: string[];
+  }[]>(),
+  hasCompletedOnboarding: boolean("has_completed_onboarding").default(false),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 })

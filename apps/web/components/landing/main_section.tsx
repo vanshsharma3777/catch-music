@@ -3,8 +3,11 @@
 import { Check, CheckCircle, Download, Headphones, Menu, MoreHorizontal, Music4, Pause, Play, Repeat, ShuffleIcon, SkipBack, SkipForward, WifiOff, Zap } from "lucide-react";
 import ButtonComponent from "../Button";
 import { useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 
 export default function MainSection(){
+  const session = useSession()
+  console.log("session " , session)
   const waveform = [2, 4, 6, 6, 8, 20, 15, 20, 34, 16, 24, 40, 56, 80, 56, 40, 24, 16, 10, 6, 8];
 const songs = [
     {
@@ -141,9 +144,9 @@ const songs = [
 
             <div className="flex flex-col sm:flex-row items-center gap-4 pt-4">
               <ButtonComponent
-                buttonInput="Sign In to continue"
+                buttonInput={session.data ?`Get Started` :`Sign In to continue`}
                 classNameInputs="w-full sm:w-auto rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3.5 text-black font-semibold text-sm tracking-wide shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5"
-                onClick="/signin"
+                onClick={session.data ?`/home` :`/signin`}
                 action="push"
               />
               <ButtonComponent
