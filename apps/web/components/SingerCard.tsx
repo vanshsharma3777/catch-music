@@ -1,8 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Check, Heart, Music4 } from "lucide-react";
 import { Singer } from "../app/lib/singersDB";
+
+// Shown when a singer has no photo, or the photo URL fails to load
+const DEFAULT_SINGER_IMAGE = "/boy2.png";
 
 interface SingerCardProps {
   singer: Singer;
@@ -26,6 +29,14 @@ export default function SingerCard({
 
   const isClickable = !disabled || isSelected;
 
+  const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [singer.image]);
+
+  const hasImage = typeof singer.image === "string" && singer.image.trim() !== "";
+  const imageSrc = hasImage && !imgFailed ? singer.image : DEFAULT_SINGER_IMAGE;
+
   return (
     <div
       onClick={() => isClickable && onToggle(singer.id)}
@@ -41,8 +52,11 @@ export default function SingerCard({
       <div className="relative mb-3.5 ">
         <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full overflow-hidden border-2 border-border-light bg-bg-ter shadow-md group-hover:border-accent/60 transition-colors duration-300">
           <img
-            src={singer.image}
+            src={imageSrc}
             alt={singer.name}
+            onError={() => {
+              if (!imgFailed) setImgFailed(true);
+            }}
             className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>

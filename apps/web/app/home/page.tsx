@@ -3,7 +3,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import axios from "axios";
 import {
   Play,
   Pause,
@@ -28,76 +27,10 @@ import { Singer } from "../lib/singersDB";
 import { getAllSongs, getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
 import { getRecentSongs } from "../lib/recentSongs";
 import { checkStorageQuota } from "../lib/estimateStorage";
+import { CoverImage, getImageUrl } from "../../components/CoverImage";
+import HomeSearch from "../../components/search/HomeSearch";
+import { getSingerSongs } from "../lib/singerSongClient";
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-const getImageUrl = (song: any): string => {
-  if (Array.isArray(song?.image)) {
-    return song.image[song.image.length - 1]?.url || "";
-  }
-  if (typeof song?.image === "string" && song.image.trim() !== "") {
-    return song.image;
-  }
-  return "";
-};
-
-const hueFromText = (text: string) => {
-  let h = 0;
-  for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) % 360;
-  return h;
-};
-
-/**
- * Image with a built-in default. If the URL is empty or fails to load,
- * a gradient tile (unique per name) with an icon is shown instead.
- */
-function CoverImage({
-  src,
-  name,
-  kind = "song",
-  className = "",
-}: {
-  src?: string;
-  name?: string;
-  kind?: "song" | "singer";
-  className?: string;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  if (!src || failed) {
-    const hue = hueFromText(name || "catchmusic");
-    const Icon = kind === "singer" ? User : Music2;
-    return (
-      <div
-        role="img"
-        aria-label={name || "Default artwork"}
-        className={`relative flex items-center justify-center overflow-hidden text-white/90 ${className}`}
-        style={{
-          background: `linear-gradient(135deg, hsl(${hue} 70% 48%), hsl(${(hue + 55) % 360} 70% 28%))`,
-        }}
-      >
-        <span className="absolute -right-1/4 -top-1/4 h-3/4 w-3/4 rounded-full bg-white/15 blur-xl" />
-        <Icon className="relative h-2/5 w-2/5" strokeWidth={1.5} />
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt={name || ""}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      className={`object-cover ${className}`}
-    />
-  );
-}
 
 function Equalizer() {
   return (
@@ -139,10 +72,6 @@ function SectionHeader({
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Song card (single component replaces three duplicated blocks)       */
-/* ------------------------------------------------------------------ */
 
 function SongCard({
   song,
@@ -239,30 +168,25 @@ function SongCard({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Page                                                                */
-/* ------------------------------------------------------------------ */
-
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
   const player = usePlayer();
 
-  // User & Onboarding State
   const [favoriteSingers, setFavoriteSingers] = useState<Singer[]>([]);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  // Music Catalog Data
   const [recentTracks, setRecentTracks] = useState<Song[]>([]);
   const [cachedTracks, setCachedTracks] = useState<any[]>([]);
   const [suggestedTracks, setSuggestedTracks] = useState<Song[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
 
-  // Storage & Cache State
   const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
   const [isCachingAny, setIsCachingAny] = useState(false);
   const [remainingStorage, setRemainingStorage] = useState<number | null>(null);
+
+  const [searchActive, setSearchActive] = useState(false);
 
   const allPlayableSongs = useMemo(() => {
     const list: Song[] = [];
@@ -283,7 +207,6 @@ export default function HomePage() {
     return list;
   }, [recentTracks, suggestedTracks, cachedTracks]);
 
-  // Sync recent tracks whenever current song changes
   useEffect(() => {
     if (player.currentSong) {
       setRecentTracks(getRecentSongs());
@@ -368,36 +291,33 @@ export default function HomePage() {
 
   const fetchSuggestions = async (singers: Singer[]) => {
     setIsLoadingSuggestions(true);
-    try {
-      const requests = singers.map(async (singer) => {
-        try {
-          const response = await axios.post("/api/search/songs", {
-            query: singer.name.trim(),
-            limit: 8,
-          });
-          if (response.data.success && Array.isArray(response.data.data)) {
-            return response.data.data.map((song: Song) => ({
-              ...song,
-              artistName: singer.name,
-            }));
-          }
-          return [];
-        } catch (e) {
-          return [];
-        }
-      });
+    const perSinger = new Map<string, Song[]>();
 
-      const results = await Promise.all(requests);
-      const flattened = results.flat();
-
+    const rebuild = () => {
+      const lists = singers.map((s) => perSinger.get(s.id) ?? []);
+      const mixed: Song[] = [];
       const seen = new Set<string>();
-      const unique = flattened.filter((s) => {
-        if (!s || !s.id || seen.has(String(s.id))) return false;
-        seen.add(String(s.id));
-        return true;
-      });
+      for (let i = 0; i < 6; i++) {
+        for (const list of lists) {
+          const song = list[i];
+          if (song && song.id && !seen.has(String(song.id))) {
+            seen.add(String(song.id));
+            mixed.push(song);
+          }
+        }
+      }
+      setSuggestedTracks(mixed);
+    };
 
-      setSuggestedTracks(unique);
+    try {
+      await Promise.all(
+        singers.map((singer) =>
+          getSingerSongs(singer.name, (songs) => {
+            perSinger.set(singer.id, songs);
+            rebuild();
+          })
+        )
+      );
     } catch (err) {
       console.error("Failed to fetch suggestions:", err);
     } finally {
@@ -492,7 +412,6 @@ export default function HomePage() {
     );
   };
 
-  // "Jump back in" hero pick: latest played, else first suggestion
   const heroSong: Song | undefined = recentTracks[0] || suggestedTracks[0];
   const heroPlaying =
     !!heroSong && String(player.currentSong?.id) === String(heroSong.id) && player.isPlaying;
@@ -511,12 +430,10 @@ export default function HomePage() {
         @media (prefers-reduced-motion:reduce){.eq-bar{animation:none;height:60%}}
       `}</style>
 
-      {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[520px] bg-[radial-gradient(ellipse_at_top,var(--glow-gold),transparent_65%)] opacity-30" />
       <div className="pointer-events-none absolute -left-32 top-64 h-80 w-80 rounded-full bg-accent/10 blur-3xl" />
 
       <main className="relative z-10 mx-auto w-full max-w-7xl space-y-14">
-        {/* ---------------- Top bar ---------------- */}
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-lg shadow-accent/20">
@@ -570,7 +487,16 @@ export default function HomePage() {
           </div>
         </header>
 
-        {/* ---------------- Hero ---------------- */}
+        <HomeSearch
+          onActiveChange={setSearchActive}
+          cachedSongIds={cachedSongIds}
+          cachingIds={cachingIds}
+          isCachingAny={isCachingAny}
+          onToggleCache={handleToggleCache}
+        />
+
+        {!searchActive && (
+          <>
         <section className="grid items-stretch gap-6 lg:grid-cols-5">
           <div className="flex flex-col justify-center lg:col-span-3">
             <p className="text-sm font-medium text-sec">{getGreeting()}</p>
@@ -731,7 +657,6 @@ export default function HomePage() {
           </section>
         )}
 
-        {/* ---------------- Suggested ---------------- */}
         <section className="space-y-4">
           <SectionHeader
             icon={<Sparkles size={20} />}
@@ -763,7 +688,6 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* ---------------- Artists ---------------- */}
         <section className="space-y-4">
           <SectionHeader icon={<User size={20} />} title="Your artists" />
 
@@ -795,6 +719,8 @@ export default function HomePage() {
             ))}
           </div>
         </section>
+          </>
+        )}
       </main>
     </div>
   );
