@@ -50,6 +50,13 @@
       "when": 1776177447407,
       "tag": "0006_motionless_lyja",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792091890975,
+      "tag": "0007_superb_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

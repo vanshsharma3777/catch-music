@@ -29,3 +29,20 @@ export const ExpandIcon = (p: P) => (<svg {...stroke(p)}><path d="m18 15-6-6-6 6
 export const CloseIcon = (p: P) => (<svg {...stroke(p)}><path d="M18 6 6 18M6 6l12 12" /></svg>);
 export const VolumeIcon = (p: P) => (<svg {...stroke(p)}><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" /></svg>);
 export const MuteIcon = (p: P) => (<svg {...stroke(p)}><path d="M11 5 6 9H3v6h3l5 4V5Z" /><path d="m22 9-6 6M16 9l6 6" /></svg>);
+
+export const HeartIcon = ({ filled, ...p }: P & { filled?: boolean }) => (
+  <svg
+    {...(filled ? base(p) : stroke(p))}
+    className={`${filled ? "text-accent fill-accent" : "hover:text-accent"} ${p.className || ""}`}
+  >
+    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+  </svg>
+);
+
+export const MoreDotsIcon = (p: P) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="1.7" />
+    <circle cx="19" cy="12" r="1.7" />
+    <circle cx="5" cy="12" r="1.7" />
+  </svg>
+);

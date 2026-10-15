@@ -4,6 +4,45 @@ const IMAGE_CACHE = "catchmusic-images-v1";
 
 const OFFLINE_PAGE = "/offline-play";
 
+async function respondWithRange(request, cachedResponse) {
+  const range = request.headers.get("range");
+
+  if (!range) {
+    return cachedResponse;
+  }
+
+  const buffer = await cachedResponse.arrayBuffer();
+  const size = buffer.byteLength;
+  const match = /bytes=(\d*)-(\d*)/.exec(range);
+
+  if (!match) {
+    return cachedResponse;
+  }
+
+  const start = match[1] ? parseInt(match[1], 10) : 0;
+  const end = match[2] ? Math.min(parseInt(match[2], 10), size - 1) : size - 1;
+
+  if (start >= size || start > end) {
+    return new Response(null, {
+      status: 416,
+      headers: { "Content-Range": `bytes */${size}` },
+    });
+  }
+
+  const chunk = buffer.slice(start, end + 1);
+
+  return new Response(chunk, {
+    status: 206,
+    headers: {
+      "Content-Type":
+        cachedResponse.headers.get("Content-Type") || "audio/mpeg",
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(chunk.byteLength),
+      "Accept-Ranges": "bytes",
+    },
+  });
+}
+
 /*
  * Install
  */
@@ -70,7 +109,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
         if (cachedResponse) {
-          return cachedResponse;
+          return respondWithRange(request, cachedResponse);
         }
 
         return new Response("Song not found", {

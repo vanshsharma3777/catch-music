@@ -161,14 +161,14 @@ function SongRow({
       onClick={onPlay}
       onKeyDown={(e) => e.key === "Enter" && onPlay()}
       aria-label={`Play ${title}`}
-      className={`group flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-accent ${
+      className={`group flex cursor-pointer items-center gap-3 rounded-2xl px-2.5 py-2 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-accent ${
         playing ? "bg-accent/10" : ""
       }`}
     >
       <span className="hidden w-5 text-center text-xs tabular-nums text-muted sm:block">
         {index + 1}
       </span>
-      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-white/10">
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl shadow-[0_8px_20px_-10px_rgba(0,0,0,0.8)]">
         <CoverImage
           src={pickImage(song.image, "thumb")}
           name={title}
@@ -219,24 +219,26 @@ function EntityCard({ m, onOpen }: { m: Mini; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="group rounded-2xl p-2.5 text-left transition-colors hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-accent"
+      className="group rounded-3xl p-2.5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-accent"
     >
       <div
-        className={`aspect-square w-full overflow-hidden shadow-lg ring-1 ring-white/10 ${
-          round ? "rounded-full" : "rounded-xl"
+        className={`aspect-square w-full overflow-hidden shadow-[0_12px_30px_-14px_rgba(0,0,0,0.8)] ${
+          round ? "rounded-full" : "rounded-2xl"
         }`}
       >
         <CoverImage
           src={m.image}
           name={m.title}
           kind={round ? "singer" : "song"}
-          className="h-full w-full transition-transform duration-500 group-hover:scale-110"
+          className="h-full w-full transition-transform duration-500 group-hover:scale-105"
         />
       </div>
-      <p className={`mt-2.5 truncate text-sm font-bold text-pri ${round ? "text-center" : ""}`}>
+      <p className={`mt-3 truncate px-1 text-sm font-bold text-pri ${round ? "text-center" : ""}`}>
         {m.title}
       </p>
-      <p className={`truncate text-xs text-muted ${round ? "text-center" : ""}`}>{m.subtitle}</p>
+      <p className={`truncate px-1 text-xs text-muted ${round ? "text-center" : ""}`}>
+        {m.subtitle}
+      </p>
     </button>
   );
 }
@@ -269,10 +271,10 @@ function RowSkeleton({ n = 5 }: { n?: number }) {
     <div className="space-y-2">
       {Array.from({ length: n }).map((_, i) => (
         <div key={i} className="flex animate-pulse items-center gap-3 px-2.5 py-2">
-          <div className="h-12 w-12 rounded-lg bg-surface" />
+          <div className="h-12 w-12 rounded-xl bg-white/[0.07]" />
           <div className="flex-1 space-y-2">
-            <div className="h-3 w-1/2 rounded bg-surface" />
-            <div className="h-3 w-1/3 rounded bg-surface" />
+            <div className="h-3 w-1/2 rounded bg-white/[0.07]" />
+            <div className="h-3 w-1/3 rounded bg-white/[0.07]" />
           </div>
         </div>
       ))}
@@ -334,6 +336,20 @@ export default function HomeSearch({
       const raw = localStorage.getItem(RECENT_KEY);
       if (raw) setRecent(JSON.parse(raw));
     } catch {}
+  }, []);
+
+  // press "/" anywhere to jump into the search box
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || t?.isContentEditable) return;
+      e.preventDefault();
+      inputRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   const saveRecent = (q: string) => {
@@ -425,7 +441,6 @@ export default function HomeSearch({
 
   const bestSongId =
     ranked?.songs[0] && matchScore(ranked.songs[0].title, query) >= 85 ? ranked.songs[0].id : null;
-
 
   const runSearch = useCallback(async (raw: string) => {
     const text = raw.trim();
@@ -547,7 +562,6 @@ export default function HomeSearch({
     // PlayerContext already ignores events that come from inputs.
   };
 
-
   const playSongFrom = (song: Song, list: Song[]) => player.playSong(song, list);
 
   const renderSongs = (list: Song[], limit?: number) => (
@@ -594,7 +608,6 @@ export default function HomeSearch({
     { id: "playlists", label: "Playlists", count: playlists.length },
   ];
 
-
   let navCounter = -1;
   const section = (label: string, list: Mini[]) =>
     list.length === 0 ? null : (
@@ -623,70 +636,72 @@ export default function HomeSearch({
 
   return (
     <>
-      <div ref={wrapRef} className="relative z-30 w-full">
-        <div className="group relative">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -inset-1.5 rounded-full bg-gradient-to-r from-[var(--primary)] via-[var(--accent)] to-[var(--primary)] opacity-40 blur-xl transition-opacity duration-500 group-focus-within:opacity-90"
+      <div ref={wrapRef} className="relative z-30 mx-auto w-full max-w-3xl">
+        {/* Frosted dark search pill. On focus: it brightens a little, the icon turns
+            accent and a thin accent line grows along the bottom edge. */}
+        <div className="group relative overflow-hidden rounded-full bg-white/[0.06] shadow-[0_18px_50px_-24px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-colors duration-300 focus-within:bg-white/[0.10] hover:bg-white/[0.08]">
+          <Search
+            size={20}
+            strokeWidth={2.4}
+            className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-muted transition-colors duration-300 group-focus-within:text-accent"
           />
-          {/* gradient border */}
-          <div className="relative rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] p-[2px] shadow-2xl shadow-black/40">
-            <div className="relative flex items-center rounded-full bg-white">
-              <Search
-                size={20}
-                strokeWidth={2.5}
-                className="pointer-events-none absolute left-5 text-neutral-900"
-              />
-              <input
-                ref={inputRef}
-                type="text"
-                role="combobox"
-                aria-expanded={open}
-                aria-controls="home-search-list"
-                aria-label="Search songs, artists, albums and playlists"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setOpen(true);
-                }}
-                onFocus={() => setOpen(true)}
-                onKeyDown={onKeyDown}
-                placeholder="Search songs, artists, albums..."
-                autoComplete="off"
-                className="w-full rounded-full bg-transparent py-4 pl-14 pr-36 text-base font-semibold text-black caret-black placeholder:font-medium placeholder:text-neutral-500 focus:outline-none"
-              />
-              <div className="absolute right-2 flex items-center gap-1">
-                {suggestLoading && (
-                  <RefreshCw size={15} className="mr-1 animate-spin text-neutral-700" />
-                )}
-                {query && (
-                  <button
-                    type="button"
-                    onClick={clearAll}
-                    aria-label="Clear search"
-                    className="grid h-9 w-9 place-items-center rounded-full text-neutral-500 transition hover:bg-neutral-100 hover:text-black"
-                  >
-                    <X size={17} />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => runSearch(query)}
-                  disabled={!query.trim()}
-                  className="rounded-full bg-neutral-900 px-5 py-2.5 text-sm font-bold text-white transition hover:scale-105 hover:bg-black active:scale-95 disabled:pointer-events-none disabled:opacity-40"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
+          <input
+            ref={inputRef}
+            type="text"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls="home-search-list"
+            aria-label="Search songs, artists, albums and playlists"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+            placeholder="Search songs, artists, albums..."
+            autoComplete="off"
+            className="w-full bg-transparent py-4 pl-14 pr-36 text-base font-medium text-pri caret-accent placeholder:text-muted focus:outline-none"
+          />
+
+          <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+            {suggestLoading && <RefreshCw size={15} className="mr-1 animate-spin text-sec" />}
+            {query ? (
+              <button
+                type="button"
+                onClick={clearAll}
+                aria-label="Clear search"
+                className="grid h-9 w-9 place-items-center rounded-full text-muted transition hover:bg-white/10 hover:text-pri"
+              >
+                <X size={17} />
+              </button>
+            ) : (
+              <kbd className="mr-2 hidden h-6 min-w-6 place-items-center rounded-md bg-white/[0.08] px-1.5 text-xs font-semibold text-muted transition-opacity group-focus-within:opacity-0 sm:grid">
+                /
+              </kbd>
+            )}
+            <button
+              type="button"
+              onClick={() => runSearch(query)}
+              disabled={!query.trim()}
+              className="rounded-full bg-accent px-5 py-2.5 text-sm font-bold text-bg transition hover:scale-105 active:scale-95 disabled:pointer-events-none disabled:bg-white/10 disabled:text-muted"
+            >
+              Search
+            </button>
           </div>
+
+          {/* growing accent line */}
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-center scale-x-0 bg-gradient-to-r from-transparent via-accent to-transparent transition-transform duration-500 ease-out group-focus-within:scale-x-100"
+          />
         </div>
 
         {(showRecents || showSuggest) && (
           <div
             id="home-search-list"
             role="listbox"
-            className="absolute left-0 right-0 top-full mt-4 max-h-[70vh] overflow-y-auto rounded-3xl border border-border-light bg-surface/95 pb-2 shadow-2xl shadow-black/50 backdrop-blur-xl"
+            className="absolute left-0 right-0 top-full mt-3 max-h-[70vh] overflow-y-auto rounded-3xl bg-surface/90 pb-2 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] backdrop-blur-2xl"
           >
             {showRecents && (
               <div>
@@ -745,7 +760,7 @@ export default function HomeSearch({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => runSearch(query)}
-                className={`mt-2 flex w-full items-center gap-2 border-t border-border px-4 py-3 text-left text-sm font-semibold text-accent transition-colors ${
+                className={`mt-2 flex w-full items-center gap-2 border-t border-white/[0.06] px-4 py-3 text-left text-sm font-semibold text-accent transition-colors ${
                   activeIdx === navItems.length - 1 ? "bg-white/10" : "hover:bg-white/[0.06]"
                 }`}
               >
@@ -773,8 +788,8 @@ export default function HomeSearch({
               src={detail.mini.image}
               name={detail.mini.title}
               kind={detail.type === "artist" ? "singer" : "song"}
-              className={`h-40 w-40 shrink-0 shadow-2xl ring-1 ring-white/15 sm:h-48 sm:w-48 ${
-                detail.type === "artist" ? "rounded-full" : "rounded-2xl"
+              className={`h-40 w-40 shrink-0 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] sm:h-48 sm:w-48 ${
+                detail.type === "artist" ? "rounded-full" : "rounded-3xl"
               }`}
             />
             <div className="min-w-0 text-center sm:text-left">
@@ -811,28 +826,28 @@ export default function HomeSearch({
         <section className="space-y-6">
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={goBack}
-                      aria-label="Back to home"
-                      className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-pri transition hover:bg-white/20"
-                    >
-                      <ArrowLeft size={18} />
-                    </button>
-                    <h2 className="text-xl font-extrabold tracking-tight text-pri sm:text-2xl">
-                      Results for “{submitted}”
-                    </h2>
-                  </div>
+              <button
+                type="button"
+                onClick={goBack}
+                aria-label="Back to home"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10 text-pri transition hover:bg-white/20"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <h2 className="text-xl font-extrabold tracking-tight text-pri sm:text-2xl">
+                Results for “{submitted}”
+              </h2>
+            </div>
             <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1">
               {tabs.map((t) => (
                 <button
                   key={t.id}
                   type="button"
                   onClick={() => setTab(t.id)}
-                  className={`shrink-0 rounded-full border px-4 py-1.5 text-xs font-semibold transition ${
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold backdrop-blur-xl transition ${
                     tab === t.id
-                      ? "border-accent bg-accent text-bg"
-                      : "border-border-light bg-surface/70 text-sec hover:text-pri"
+                      ? "bg-accent text-bg"
+                      : "bg-white/[0.06] text-sec hover:bg-white/[0.12] hover:text-pri"
                   }`}
                 >
                   {t.label}
@@ -847,7 +862,7 @@ export default function HomeSearch({
           {loading && songs.length === 0 && artists.length === 0 && <RowSkeleton n={6} />}
 
           {nothingFound && (
-            <div className="rounded-3xl border border-dashed border-border-light bg-surface/60 p-10 text-center">
+            <div className="rounded-3xl bg-white/[0.04] p-10 text-center backdrop-blur-xl">
               <p className="text-sm font-bold text-pri">Nothing found for “{submitted}”</p>
               <p className="mt-1 text-xs text-sec">
                 Check the spelling or try fewer words, for example just the first word of the song.
@@ -859,7 +874,10 @@ export default function HomeSearch({
             <div className="space-y-8">
               {songs.length > 0 && (
                 <div>
-                  <SectionTitle title="Songs" onSeeAll={songs.length > 5 ? () => setTab("songs") : undefined} />
+                  <SectionTitle
+                    title="Songs"
+                    onSeeAll={songs.length > 5 ? () => setTab("songs") : undefined}
+                  />
                   {renderSongs(songs, 5)}
                 </div>
               )}
@@ -893,7 +911,7 @@ export default function HomeSearch({
                     type="button"
                     onClick={loadMoreSongs}
                     disabled={loadingMore}
-                    className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface/70 px-6 py-2.5 text-xs font-semibold text-pri transition hover:border-accent/50"
+                    className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-6 py-2.5 text-xs font-semibold text-pri backdrop-blur-xl transition hover:bg-white/[0.13]"
                   >
                     {loadingMore && <RefreshCw size={13} className="animate-spin" />}
                     Show more songs

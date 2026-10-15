@@ -5,8 +5,8 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import ServiceWorkerRegister from "../components/ServiceWorkerRegister";
-import OfflineRedirect from "../components/OfflineRedirect";
 import { PlayerProvider, GlobalPlayer } from "../components/player";
+import ConnectivityProvider from "../components/connectivity/ConnectivityProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -29,10 +29,11 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}
         >
           <PlayerProvider>
-            <ServiceWorkerRegister />
-            <OfflineRedirect />
-            {children}
-            <GlobalPlayer />
+            <ConnectivityProvider>
+              <ServiceWorkerRegister />
+              {children}
+              <GlobalPlayer />
+            </ConnectivityProvider>
           </PlayerProvider>
         </body>
       </SessionProvider>
