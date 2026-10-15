@@ -1,17 +1,14 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "../../lib/authServer";
+import { NextRequest, NextResponse } from "next/server";
 import { db, offlineSongMeta } from "@repo/db";
-import { eq, and, desc } from "drizzle-orm";
-import { Song } from "../../types/songs";
+import { and, desc, eq } from "drizzle-orm";
+import type { Song } from "../../types/songs";
+import { asRecord, fail, readJson, requireUser } from "../../lib/api/http";
+import { sanitizeSong } from "../../lib/api/validation";
 
 export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
 
   try {
     const records = await db
@@ -20,141 +17,85 @@ export async function GET() {
       .where(eq(offlineSongMeta.userId, user.id))
       .orderBy(desc(offlineSongMeta.createdAt));
 
-    const songs: Song[] = [];
-    const songIds: string[] = [];
-
-    for (const record of records) {
-      songIds.push(record.songId);
-      if (record.songData && typeof record.songData === "object") {
-        songs.push(record.songData as Song);
-      } else {
-        songs.push({
-          id: record.songId,
-          name: "Offline Track",
-        });
-      }
-    }
+    const offlineSongs: Song[] = records.map((r) =>
+      r.songData && typeof r.songData === "object"
+        ? (r.songData as Song)
+        : { id: r.songId, name: "Offline Track" }
+    );
 
     return NextResponse.json({
       success: true,
-      offlineSongs: songs,
-      songIds,
+      offlineSongs,
+      songIds: records.map((r) => r.songId),
+      items: records.map((r) => ({
+        songId: r.songId,
+        status: r.status,
+        sizeBytes: r.sizeBytes,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+      })),
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching offline song metadata:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch offline songs" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to fetch offline songs");
   }
 }
 
+/** POST /api/offline  { song, sizeBytes? }  -- register / update (idempotent). */
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  const body = asRecord(await readJson(request));
+  const song = sanitizeSong(body?.song);
+  if (!song) return fail(400, "A valid song (with an id) is required", "INVALID_SONG");
+
+  const rawSize = body?.sizeBytes;
+  const sizeBytes =
+    typeof rawSize === "number" && Number.isFinite(rawSize) && rawSize >= 0 && rawSize < 2 ** 31
+      ? Math.round(rawSize)
+      : null;
 
   try {
-    const body = await request.json();
-    const song: Song = body.song;
-
-    if (!song || !song.id) {
-      return NextResponse.json(
-        { success: false, error: "Song ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const songId = String(song.id);
-
-    const existing = await db
-      .select({ id: offlineSongMeta.id })
-      .from(offlineSongMeta)
-      .where(
-        and(
-          eq(offlineSongMeta.userId, user.id),
-          eq(offlineSongMeta.songId, songId)
-        )
-      )
-      .limit(1);
-
-    if (existing.length === 0) {
-      await db.insert(offlineSongMeta).values({
-        userId: user.id,
-        songId,
-        songData: song,
+    await db
+      .insert(offlineSongMeta)
+      .values({ userId: user.id, songId: song.id, songData: song, status: "downloaded", sizeBytes })
+      .onConflictDoUpdate({
+        target: [offlineSongMeta.userId, offlineSongMeta.songId],
+        set: { songData: song, status: "downloaded", sizeBytes, updatedAt: new Date() },
       });
-    } else {
-      await db
-        .update(offlineSongMeta)
-        .set({
-          songData: song,
-        })
-        .where(eq(offlineSongMeta.id, existing[0]!.id));
-    }
 
-    return NextResponse.json({
-      success: true,
-      songId,
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, songId: song.id });
+  } catch (error) {
     console.error("Error registering offline song:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to register offline song" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to register offline song");
   }
 }
 
+/** DELETE /api/offline?songId=  (idempotent). */
 export async function DELETE(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  let songId = new URL(request.url).searchParams.get("songId");
+  if (!songId) {
+    const body = asRecord(await readJson(request));
+    if (typeof body?.songId === "string" || typeof body?.songId === "number") {
+      songId = String(body.songId);
+    }
   }
+  if (!songId || songId.length > 200) return fail(400, "Song ID is required", "INVALID_SONG");
 
   try {
-    const { searchParams } = new URL(request.url);
-    let songId = searchParams.get("songId");
-
-    if (!songId) {
-      try {
-        const body = await request.json();
-        songId = body.songId;
-      } catch {}
-    }
-
-    if (!songId) {
-      return NextResponse.json(
-        { success: false, error: "Song ID is required" },
-        { status: 400 }
-      );
-    }
-
     await db
       .delete(offlineSongMeta)
-      .where(
-        and(
-          eq(offlineSongMeta.userId, user.id),
-          eq(offlineSongMeta.songId, String(songId))
-        )
-      );
+      .where(and(eq(offlineSongMeta.userId, user.id), eq(offlineSongMeta.songId, songId)));
 
-    return NextResponse.json({
-      success: true,
-      songId: String(songId),
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, songId });
+  } catch (error) {
     console.error("Error deleting offline song metadata:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to delete offline song metadata" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to delete offline song metadata");
   }
 }

@@ -193,6 +193,7 @@ export const playlist = pgTable(
   },
   (table) => [
     index("idx_playlist_user_id").on(table.userId),
+    index("idx_playlist_is_public").on(table.isPublic),
   ]
 );
 
@@ -254,7 +255,10 @@ export const offlineSongMeta = pgTable(
     userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     songId: text("song_id").notNull(),
     songData: jsonb("song_data"),
+    status: text("status").notNull().default("downloaded"),
+    sizeBytes: integer("size_bytes"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
     index("idx_offline_song_user_id").on(table.userId),

@@ -1,116 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "../../../../lib/authServer";
-import { db, playlist, savedPlaylist } from "@repo/db";
-import { eq, or, and } from "drizzle-orm";
+import { db, savedPlaylist } from "@repo/db";
+import { and, eq } from "drizzle-orm";
+import { fail, requireUser } from "../../../../lib/api/http";
+import { findPlaylist } from "../../../../lib/api/playlists";
 
-export async function POST(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+type Ctx = { params: Promise<{ id: string }> };
+
+/** POST /api/playlists/:id/save -- save someone else's public playlist (idempotent). */
+export async function POST(_request: NextRequest, context: Ctx) {
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
 
   const { id } = await context.params;
 
   try {
-    const existing = await db
-      .select()
-      .from(playlist)
-      .where(or(eq(playlist.playlistId, id), eq(playlist.id, id as any)))
-      .limit(1);
+    const row = await findPlaylist(id);
+    if (!row) return fail(404, "Playlist not found", "NOT_FOUND");
 
-    if (existing.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Playlist not found" },
-        { status: 404 }
-      );
+    if (row.userId === user.id) {
+      return fail(400, "You can't save your own playlist - it's already in your library", "OWN_PLAYLIST");
     }
+    if (row.isPublic === false) return fail(403, "Private playlists cannot be saved", "PRIVATE");
 
-    const p = existing[0]!;
-    if (p.userId === user.id) {
-      return NextResponse.json(
-        { success: false, error: "You cannot save your own playlist" },
-        { status: 400 }
-      );
-    }
+    // The unique (user, playlist) index makes concurrent double-saves harmless.
+    await db
+      .insert(savedPlaylist)
+      .values({ userId: user.id, playlistId: row.playlistId })
+      .onConflictDoNothing({ target: [savedPlaylist.userId, savedPlaylist.playlistId] });
 
-    if (!p.isPublic) {
-      return NextResponse.json(
-        { success: false, error: "Private playlists cannot be saved" },
-        { status: 403 }
-      );
-    }
-
-    // Check if already saved
-    const alreadySaved = await db
-      .select({ id: savedPlaylist.id })
-      .from(savedPlaylist)
-      .where(and(eq(savedPlaylist.userId, user.id), eq(savedPlaylist.playlistId, p.playlistId)))
-      .limit(1);
-
-    if (alreadySaved.length === 0) {
-      await db.insert(savedPlaylist).values({
-        userId: user.id,
-        playlistId: p.playlistId,
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      isSaved: true,
-      message: "Playlist saved to your library",
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, isSaved: true, message: "Playlist saved to your library" });
+  } catch (error) {
     console.error("Error saving playlist:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to save playlist" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to save playlist");
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+/** DELETE /api/playlists/:id/save -- removes ONLY the caller's link; the playlist itself is untouched. */
+export async function DELETE(_request: NextRequest, context: Ctx) {
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
 
   const { id } = await context.params;
 
   try {
-    const existing = await db
-      .select()
-      .from(playlist)
-      .where(or(eq(playlist.playlistId, id), eq(playlist.id, id as any)))
-      .limit(1);
-
-    const playlistId = existing[0]?.playlistId || id;
+    const row = await findPlaylist(id);
+    // Works even if the playlist was deleted/hidden in the meantime: just drop the caller's link.
+    const playlistId = row?.playlistId ?? id;
 
     await db
       .delete(savedPlaylist)
       .where(and(eq(savedPlaylist.userId, user.id), eq(savedPlaylist.playlistId, playlistId)));
 
-    return NextResponse.json({
-      success: true,
-      isSaved: false,
-      message: "Playlist removed from saved playlists",
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, isSaved: false, message: "Playlist removed from saved playlists" });
+  } catch (error) {
     console.error("Error removing saved playlist:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to remove saved playlist" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to remove saved playlist");
   }
 }

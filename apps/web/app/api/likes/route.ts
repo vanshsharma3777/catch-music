@@ -1,154 +1,110 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "../../lib/authServer";
+import { NextRequest, NextResponse } from "next/server";
 import { db, likedSong } from "@repo/db";
-import { eq, and, desc } from "drizzle-orm";
-import { Song } from "../../types/songs";
+import { and, count, desc, eq } from "drizzle-orm";
+import type { Song } from "../../types/songs";
+import { asRecord, fail, readJson, requireUser } from "../../lib/api/http";
+import { sanitizeSong } from "../../lib/api/validation";
 
-export async function GET() {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+const DEFAULT_PAGE = 200;
+const MAX_PAGE = 500;
+const MAX_IDS = 20_000;
+
+export async function GET(request: NextRequest) {
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  const params = new URL(request.url).searchParams;
+  const limit = Math.min(MAX_PAGE, Math.max(1, Number(params.get("limit")) || DEFAULT_PAGE));
+  const offset = Math.max(0, Number(params.get("offset")) || 0);
 
   try {
-    const records = await db
-      .select()
-      .from(likedSong)
-      .where(eq(likedSong.userId, user.id))
-      .orderBy(desc(likedSong.createdAt));
+    const [idRows, pageRows, totalRows] = await Promise.all([
+      db
+        .select({ songId: likedSong.songId })
+        .from(likedSong)
+        .where(eq(likedSong.userId, user.id))
+        .orderBy(desc(likedSong.createdAt))
+        .limit(MAX_IDS),
+      db
+        .select({ songId: likedSong.songId, songData: likedSong.songData })
+        .from(likedSong)
+        .where(eq(likedSong.userId, user.id))
+        .orderBy(desc(likedSong.createdAt), desc(likedSong.id))
+        .limit(limit)
+        .offset(offset),
+      db.select({ total: count() }).from(likedSong).where(eq(likedSong.userId, user.id)),
+    ]);
 
-    const songs: Song[] = [];
-    const likedSongIds: string[] = [];
-
-    for (const record of records) {
-      likedSongIds.push(record.songId);
-      if (record.songData && typeof record.songData === "object") {
-        songs.push(record.songData as Song);
-      } else {
-        songs.push({
-          id: record.songId,
-          name: "Untitled Track",
-        });
-      }
-    }
+    const likedSongs: Song[] = pageRows.map((r) =>
+      r.songData && typeof r.songData === "object"
+        ? (r.songData as Song)
+        : { id: r.songId, name: "Untitled Track" }
+    );
+    const total = Number(totalRows[0]?.total ?? 0);
 
     return NextResponse.json({
       success: true,
-      likedSongs: songs,
-      likedSongIds,
+      likedSongs,
+      likedSongIds: idRows.map((r) => r.songId),
+      total,
+      hasMore: offset + pageRows.length < total,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching liked songs:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch liked songs" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to fetch liked songs");
   }
 }
 
+/** POST /api/likes  { song }  -- idempotent: liking twice never creates a duplicate row. */
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  const body = asRecord(await readJson(request));
+  const song = sanitizeSong(body?.song);
+  if (!song) return fail(400, "A valid song (with an id) is required", "INVALID_SONG");
 
   try {
-    const body = await request.json();
-    const song: Song = body.song;
-
-    if (!song || !song.id) {
-      return NextResponse.json(
-        { success: false, error: "Song ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const songId = String(song.id);
-
-    // Check if already liked
-    const existing = await db
-      .select({ id: likedSong.id })
-      .from(likedSong)
-      .where(and(eq(likedSong.userId, user.id), eq(likedSong.songId, songId)))
-      .limit(1);
-
-    if (existing.length === 0) {
-      await db.insert(likedSong).values({
-        userId: user.id,
-        songId,
-        songData: song,
+    await db
+      .insert(likedSong)
+      .values({ userId: user.id, songId: song.id, songData: song })
+      .onConflictDoUpdate({
+        target: [likedSong.userId, likedSong.songId],
+        set: { songData: song, updatedAt: new Date() },
       });
-    } else {
-      await db
-        .update(likedSong)
-        .set({
-          songData: song,
-          updatedAt: new Date(),
-        })
-        .where(eq(likedSong.id, existing[0]!.id));
-    }
 
-    return NextResponse.json({
-      success: true,
-      isLiked: true,
-      songId,
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, isLiked: true, songId: song.id });
+  } catch (error) {
     console.error("Error liking song:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to like song" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to like song");
   }
 }
 
+/** DELETE /api/likes?songId=  (idempotent: unliking a song that isn't liked succeeds). */
 export async function DELETE(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  let songId = new URL(request.url).searchParams.get("songId");
+  if (!songId) {
+    const body = asRecord(await readJson(request));
+    if (typeof body?.songId === "string" || typeof body?.songId === "number") {
+      songId = String(body.songId);
+    }
   }
+  if (!songId || songId.length > 200) return fail(400, "Song ID is required", "INVALID_SONG");
 
   try {
-    const { searchParams } = new URL(request.url);
-    let songId = searchParams.get("songId");
-
-    if (!songId) {
-      try {
-        const body = await request.json();
-        songId = body.songId;
-      } catch {}
-    }
-
-    if (!songId) {
-      return NextResponse.json(
-        { success: false, error: "Song ID is required" },
-        { status: 400 }
-      );
-    }
-
     await db
       .delete(likedSong)
-      .where(and(eq(likedSong.userId, user.id), eq(likedSong.songId, String(songId))));
+      .where(and(eq(likedSong.userId, user.id), eq(likedSong.songId, songId)));
 
-    return NextResponse.json({
-      success: true,
-      isLiked: false,
-      songId: String(songId),
-    });
-  } catch (error: any) {
+    return NextResponse.json({ success: true, isLiked: false, songId });
+  } catch (error) {
     console.error("Error unliking song:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to unlike song" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to unlike song");
   }
 }

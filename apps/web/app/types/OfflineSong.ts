@@ -1,4 +1,3 @@
-
 export interface OfflineSong {
   songId: string;
   id: string;
@@ -13,4 +12,7 @@ export interface OfflineSong {
 
   cacheKey: string;
   imageCacheKey?: string;
+
+  sizeBytes?: number;
+  downloadedAt?: number;
 }

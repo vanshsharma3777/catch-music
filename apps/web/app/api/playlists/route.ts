@@ -1,205 +1,163 @@
-﻿import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "../../lib/authServer";
-import { db, playlist, playlistSong, savedPlaylist, users } from "@repo/db";
-import { eq, desc, inArray, count } from "drizzle-orm";
+import { NextRequest, NextResponse } from "next/server";
+import { db, playlist, savedPlaylist, users } from "@repo/db";
+import { count, desc, eq, and } from "drizzle-orm";
+import { asRecord, fail, readJson, requireUser } from "../../lib/api/http";
+import { LIMITS, checkImage, checkText } from "../../lib/api/validation";
+import {
+  creatorOf,
+  isPublicCondition,
+  loadCountsAndPreviews,
+  toSummary,
+  type PlaylistSummaryDTO,
+} from "../../lib/api/playlists";
 
+const MAX_LIST = 200;
+
+/** GET /api/playlists?type=created|saved|all  (default: all) */
 export async function GET(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
 
-  const { searchParams } = new URL(request.url);
-  const type = searchParams.get("type") || "all"; // "created", "saved", or "all"
+  const type = new URL(request.url).searchParams.get("type") || "all";
+  if (!["created", "saved", "all"].includes(type)) {
+    return fail(400, "type must be created, saved or all", "INVALID_TYPE");
+  }
+  const wantCreated = type === "created" || type === "all";
+  const wantSaved = type === "saved" || type === "all";
 
   try {
-    let createdList: any[] = [];
-    let savedList: any[] = [];
+    const [createdRows, savedRows] = await Promise.all([
+      wantCreated
+        ? db
+            .select()
+            .from(playlist)
+            .where(eq(playlist.userId, user.id))
+            .orderBy(desc(playlist.updatedAt))
+            .limit(MAX_LIST)
+        : Promise.resolve([]),
+      wantSaved
+        ? db
+            .select({
+              row: playlist,
+              savedAt: savedPlaylist.createdAt,
+              creatorName: users.name,
+              creatorUsername: users.username,
+              creatorImage: users.image,
+            })
+            .from(savedPlaylist)
+            .innerJoin(playlist, eq(savedPlaylist.playlistId, playlist.playlistId))
+            .leftJoin(users, eq(playlist.userId, users.id))
+            // If an owner later makes a playlist private, it disappears from other people's libraries.
+            .where(and(eq(savedPlaylist.userId, user.id), isPublicCondition))
+            .orderBy(desc(savedPlaylist.createdAt))
+            .limit(MAX_LIST)
+        : Promise.resolve([]),
+    ]);
 
-    // 1. Fetch created playlists
-    if (type === "created" || type === "all") {
-      const createdPlaylists = await db
-        .select()
-        .from(playlist)
-        .where(eq(playlist.userId, user.id))
-        .orderBy(desc(playlist.createdAt));
+    const ids = [...createdRows.map((p) => p.playlistId), ...savedRows.map((r) => r.row.playlistId)];
+    const { counts, previews } = await loadCountsAndPreviews(ids);
 
-      const playlistIds = createdPlaylists.map((p) => p.playlistId);
-
-      // Get song counts
-      const countsMap = new Map<string, number>();
-      if (playlistIds.length > 0) {
-        const counts = await db
-          .select({
-            playlistId: playlistSong.playListId,
-            count: count(),
-          })
-          .from(playlistSong)
-          .where(inArray(playlistSong.playListId, playlistIds))
-          .groupBy(playlistSong.playListId);
-
-        for (const c of counts) {
-          if (c.playlistId) {
-            countsMap.set(c.playlistId, Number(c.count));
-          }
-        }
-      }
-
-      createdList = createdPlaylists.map((p) => ({
-        id: p.playlistId,
-        uuid: p.id,
-        name: p.name,
-        description: p.description || "",
-        image: p.image || "",
-        isPublic: p.isPublic !== false,
-        songCount: countsMap.get(p.playlistId) || 0,
-        creatorName: user.name || "You",
-        creatorId: user.id,
-        isOwner: true,
+    const ownerName = user.name || user.username || "You";
+    const createdPlaylists: PlaylistSummaryDTO[] = createdRows.map((p) =>
+      toSummary(p, {
+        viewerId: user.id,
         isSaved: false,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-      }));
-    }
-
-    // 2. Fetch saved playlists
-    if (type === "saved" || type === "all") {
-      const savedRecords = await db
-        .select({
-          savedId: savedPlaylist.id,
-          savedAt: savedPlaylist.createdAt,
-          playlistId: playlist.playlistId,
-          uuid: playlist.id,
-          name: playlist.name,
-          description: playlist.description,
-          image: playlist.image,
-          isPublic: playlist.isPublic,
-          creatorId: playlist.userId,
-          creatorName: users.name,
-          creatorImage: users.image,
-          createdAt: playlist.createdAt,
-          updatedAt: playlist.updatedAt,
-        })
-        .from(savedPlaylist)
-        .innerJoin(playlist, eq(savedPlaylist.playlistId, playlist.playlistId))
-        .leftJoin(users, eq(playlist.userId, users.id))
-        .where(eq(savedPlaylist.userId, user.id))
-        .orderBy(desc(savedPlaylist.createdAt));
-
-      const savedPlaylistIds = savedRecords.map((r) => r.playlistId);
-
-      const savedCountsMap = new Map<string, number>();
-      if (savedPlaylistIds.length > 0) {
-        const counts = await db
-          .select({
-            playlistId: playlistSong.playListId,
-            count: count(),
-          })
-          .from(playlistSong)
-          .where(inArray(playlistSong.playListId, savedPlaylistIds))
-          .groupBy(playlistSong.playListId);
-
-        for (const c of counts) {
-          if (c.playlistId) {
-            savedCountsMap.set(c.playlistId, Number(c.count));
-          }
-        }
-      }
-
-      savedList = savedRecords.map((r) => ({
-        id: r.playlistId,
-        uuid: r.uuid,
-        name: r.name,
-        description: r.description || "",
-        image: r.image || "",
-        isPublic: r.isPublic !== false,
-        songCount: savedCountsMap.get(r.playlistId) || 0,
-        creatorName: r.creatorName || "Unknown Artist",
-        creatorId: r.creatorId,
-        isOwner: false,
+        songCount: counts.get(p.playlistId) ?? 0,
+        previewImage: previews.get(p.playlistId) ?? "",
+        creatorName: ownerName,
+        creatorImage: user.image,
+      })
+    );
+    const savedPlaylists: PlaylistSummaryDTO[] = savedRows.map((r) =>
+      toSummary(r.row, {
+        viewerId: user.id,
         isSaved: true,
-        createdAt: r.createdAt,
-        updatedAt: r.updatedAt,
-      }));
-    }
+        songCount: counts.get(r.row.playlistId) ?? 0,
+        previewImage: previews.get(r.row.playlistId) ?? "",
+        creatorName: r.creatorName || r.creatorUsername,
+        creatorImage: r.creatorImage,
+        savedAt: r.savedAt,
+      })
+    );
 
     return NextResponse.json({
       success: true,
-      createdPlaylists: createdList,
-      savedPlaylists: savedList,
-      playlists: type === "saved" ? savedList : createdList,
+      createdPlaylists,
+      savedPlaylists,
+      playlists: type === "saved" ? savedPlaylists : createdPlaylists,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error fetching playlists:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch playlists" },
-      { status: 500 }
-    );
+    return fail(500, "Failed to fetch playlists");
   }
 }
 
+/** POST /api/playlists  { name, description?, image?, isPublic? } */
 export async function POST(request: NextRequest) {
-  const user = await getCurrentUser();
-  if (!user) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+  const auth = await requireUser();
+  if ("response" in auth) return auth.response;
+  const { user } = auth;
+
+  const body = asRecord(await readJson(request));
+  if (!body) return fail(400, "Invalid request body", "INVALID_BODY");
+
+  const name = checkText(body.name, { label: "Playlist name", max: LIMITS.playlistName, required: true });
+  if (!name.ok) return fail(400, name.error, "INVALID_NAME");
+
+  const description = checkText(body.description, {
+    label: "Description",
+    max: LIMITS.playlistDescription,
+    multiline: true,
+  });
+  if (!description.ok) return fail(400, description.error, "INVALID_DESCRIPTION");
+
+  const image = checkImage(body.image);
+  if (!image.ok) return fail(400, image.error, "INVALID_IMAGE");
+
+  if (body.isPublic !== undefined && typeof body.isPublic !== "boolean") {
+    return fail(400, "isPublic must be true or false", "INVALID_VISIBILITY");
   }
 
   try {
-    const body = await request.json();
-    const { name, description, image, isPublic } = body;
-
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return NextResponse.json(
-        { success: false, error: "Playlist name is required" },
-        { status: 400 }
-      );
+    const [{ total } = { total: 0 }] = await db
+      .select({ total: count() })
+      .from(playlist)
+      .where(eq(playlist.userId, user.id));
+    if (Number(total) >= LIMITS.maxPlaylistsPerUser) {
+      return fail(409, `You can have at most ${LIMITS.maxPlaylistsPerUser} playlists`, "LIMIT_REACHED");
     }
 
-    const playlistId = crypto.randomUUID();
-
-    const inserted = await db
+    const [created] = await db
       .insert(playlist)
       .values({
-        playlistId,
-        name: name.trim(),
-        description: description ? String(description).trim() : null,
-        image: image ? String(image).trim() : null,
-        isPublic: isPublic !== false,
-        userId: user.id,
+        playlistId: crypto.randomUUID(),
+        name: name.value,
+        description: description.value || null,
+        image: image.value,
+        isPublic: body.isPublic !== false,
+        userId: user.id, // always the session user, never a client-supplied id
       })
       .returning();
+    if (!created) return fail(500, "Failed to create playlist");
 
-    const created = inserted[0];
-
-    return NextResponse.json({
-      success: true,
-      playlist: {
-        id: created!.playlistId,
-        uuid: created!.id,
-        name: created!.name,
-        description: created!.description || "",
-        image: created!.image || "",
-        isPublic: created!.isPublic !== false,
-        songCount: 0,
-        creatorName: user.name || "You",
-        creatorId: user.id,
-        isOwner: true,
-        isSaved: false,
-        createdAt: created!.createdAt,
-        updatedAt: created!.updatedAt,
-      },
-    });
-  } catch (error: any) {
-    console.error("Error creating playlist:", error);
+    const creator = await creatorOf(user.id);
     return NextResponse.json(
-      { success: false, error: "Failed to create playlist" },
-      { status: 500 }
+      {
+        success: true,
+        playlist: toSummary(created, {
+          viewerId: user.id,
+          isSaved: false,
+          songCount: 0,
+          previewImage: "",
+          creatorName: creator.name,
+          creatorImage: creator.image,
+        }),
+      },
+      { status: 201 }
     );
+  } catch (error) {
+    console.error("Error creating playlist:", error);
+    return fail(500, "Failed to create playlist");
   }
 }
