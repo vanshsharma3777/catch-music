@@ -12,7 +12,7 @@ import React, {
 import { Song } from "../../app/types/songs";
 import { addRecentSong } from "../../app/lib/recentSongs";
 
-export type ScreenMode = "closed" | "mini" | "half" | "full";
+export type ScreenMode = "closed" | "mini" | "full";
 export type RepeatMode = "off" | "all" | "one";
 
 export interface PlayerContextType {
@@ -55,7 +55,6 @@ export interface PlayerContextType {
   toggleShuffle: () => void;
   cycleRepeat: () => void;
   setScreenMode: (mode: ScreenMode) => void;
-  openHalfScreen: () => void;
   openFullScreen: () => void;
   minimize: () => void;
   closePlayer: () => void;
@@ -316,7 +315,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioRef.current?.pause();
   }, []);
 
-  // Public playSong method
+  // Public playSong method: defaults to mini player if closed
   const playSong = useCallback(
     (
       song: Song,
@@ -331,7 +330,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         if (desiredScreenMode) {
           setScreenMode(desiredScreenMode);
         } else if (stateRef.current.screenMode === "closed") {
-          setScreenMode("half");
+          setScreenMode("mini");
         }
         return;
       }
@@ -340,7 +339,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
       setScreenMode((current) => {
         if (desiredScreenMode) return desiredScreenMode;
-        if (current === "closed") return "half";
+        if (current === "closed") return "mini";
         return current;
       });
     },
@@ -456,7 +455,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const openHalfScreen = useCallback(() => setScreenMode("half"), []);
   const openFullScreen = useCallback(() => setScreenMode("full"), []);
   const minimize = useCallback(() => setScreenMode("mini"), []);
   const closePlayer = useCallback(() => {
@@ -466,7 +464,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleScreenMode = useCallback(() => {
-    setScreenMode((prev) => (prev === "full" ? "half" : "full"));
+    setScreenMode((prev) => (prev === "full" ? "mini" : "full"));
   }, []);
 
   // Calculate current index & next song preview
@@ -506,14 +504,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 1. ESCAPE: Exit full screen -> half screen -> mini
+      // 1. ESCAPE: Exit full screen -> mini
       if (e.key === "Escape") {
         const mode = stateRef.current.screenMode;
         if (mode === "full") {
-          e.preventDefault();
-          setScreenMode("half");
-          return;
-        } else if (mode === "half") {
           e.preventDefault();
           setScreenMode("mini");
           return;
@@ -582,17 +576,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // 9. KEY F: Toggle Full-screen / Half-screen
+      // 9. KEY F: Toggle Full-screen / Mini
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleScreenMode();
-        return;
-      }
-
-      // 10. KEY H: Open Half-screen
-      if (e.key === "h" || e.key === "H") {
-        e.preventDefault();
-        openHalfScreen();
         return;
       }
     };
@@ -610,7 +597,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     toggleShuffle,
     cycleRepeat,
     toggleScreenMode,
-    openHalfScreen,
   ]);
 
   // Lock scroll only when Full-Screen is open
@@ -657,7 +643,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       toggleShuffle,
       cycleRepeat,
       setScreenMode,
-      openHalfScreen,
       openFullScreen,
       minimize,
       closePlayer,
@@ -690,7 +675,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     toggleMute,
     toggleShuffle,
     cycleRepeat,
-    openHalfScreen,
     openFullScreen,
     minimize,
     closePlayer,

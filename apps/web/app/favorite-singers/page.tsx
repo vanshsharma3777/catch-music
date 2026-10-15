@@ -3,7 +3,19 @@
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
-import { Play, Pause, Music2, RefreshCw, BookmarkCheck, BookmarkPlus, Home } from "lucide-react";
+import {
+  Play,
+  Pause,
+  Music2,
+  Music4,
+  RefreshCw,
+  BookmarkCheck,
+  BookmarkPlus,
+  Home,
+  ArrowLeft,
+  SlidersHorizontal,
+  HardDriveDownload,
+} from "lucide-react";
 import { SINGER_DATABASE, Singer } from "../lib/singersDB";
 import { Song } from "../types/songs";
 import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
@@ -211,38 +223,92 @@ function FavoriteSingersContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-bg text-pri px-4 sm:px-8 lg:px-16 py-10 pb-36">
+    <div className="relative min-h-screen bg-bg text-pri px-4 sm:px-8 lg:px-16 py-8 pb-36">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
 
-      <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
-          <div className="space-y-2">
-            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-pri">
+      <main className="w-full max-w-7xl mx-auto space-y-10 relative z-10">
+        {/* Top Global Navigation Bar */}
+        <header className="flex items-center justify-between pb-5 border-b border-border">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button
+              onClick={() => router.push("/home")}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-pri transition-all active:scale-95 cursor-pointer group shadow-sm"
+              title="Return to Home Feed"
+              aria-label="Back to home"
+            >
+              <ArrowLeft size={16} className="text-muted group-hover:text-accent transition-colors" />
+              <span className="text-xs font-bold hidden xs:inline">Back to Home</span>
+            </button>
+
+            <div
+              onClick={() => router.push("/home")}
+              className="flex items-center gap-2.5 cursor-pointer group"
+              title="Go to CatchMusic Home"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-sm">
+                <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-surface">
+                  <Music4 size={17} className="text-accent" />
+                </div>
+              </div>
+              <span className="font-extrabold text-base tracking-tight text-pri group-hover:text-accent transition-colors">
+                Catch<span className="text-accent">Music</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={() => router.push("/home")}
+              className="flex items-center gap-1.5 text-xs font-bold px-3.5 py-2 rounded-xl bg-accent text-bg hover:bg-accent-hover transition-all active:scale-95 shadow-md cursor-pointer"
+              title="Go to Home Dashboard"
+            >
+              <Home size={14} />
+              <span>Home</span>
+            </button>
+
+            <button
+              onClick={() => router.push("/singer-setup")}
+              className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-sec hover:text-pri transition-colors cursor-pointer"
+              title="Change your 3 favorite artists"
+            >
+              <SlidersHorizontal size={14} />
+              <span>Change Artists</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Shelves Banner Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-6">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-pri">
               Your Artist <span className="text-accent">Shelves</span>
             </h1>
 
             <p className="text-xs sm:text-sm text-sec max-w-xl">
-              Curated songs categorized singer by singer.
+              Curated songs categorized singer by singer. Tap any track to play instantly.
             </p>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            <button
-              onClick={() => router.push("/home")}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-pri transition-colors cursor-pointer"
-            >
-              <Home size={14} className="text-accent" />
-              <span>Back to Home</span>
-            </button>
+            {remainingStorage !== null && (
+              <div className="text-xs bg-bg-ter border border-border-light px-3.5 py-1.5 rounded-full text-sec flex items-center gap-1.5 shadow-sm">
+                <HardDriveDownload size={13} className="text-accent" />
+                <span>
+                  Storage:{" "}
+                  <strong className="text-accent font-bold">
+                    {remainingStorage.toFixed(1)} MB free
+                  </strong>
+                </span>
+              </div>
+            )}
 
-            <div className="text-sm text-sec">
-              <span className="font-medium">Available storage:</span>{" "}
-              <span className="text-accent font-bold">
-                {remainingStorage === null
-                  ? "Checking..."
-                  : `${remainingStorage.toFixed(2)} MB`}
-              </span>
-            </div>
+            <button
+              onClick={() => router.push("/singer-setup")}
+              className="sm:hidden flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-sec hover:text-pri transition-colors cursor-pointer"
+            >
+              <SlidersHorizontal size={13} />
+              <span>Artists</span>
+            </button>
           </div>
         </div>
 
@@ -254,15 +320,49 @@ function FavoriteSingersContent() {
         )}
 
         {!isLoading && error && (
-          <div className="text-center py-16 space-y-3 bg-surface rounded-3xl border border-border p-8">
+          <div className="text-center py-16 space-y-4 bg-surface rounded-3xl border border-border p-8 max-w-md mx-auto">
             <Music2 size={40} className="mx-auto text-accent" />
             <h3 className="text-base font-bold text-pri">{error}</h3>
-            <button
-              onClick={() => fetchSongsGroupedBySinger(selectedSingers)}
-              className="mt-2 text-xs font-semibold px-4 py-2 bg-accent text-bg rounded-xl hover:bg-accent-hover transition-colors"
-            >
-              Retry
-            </button>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => fetchSongsGroupedBySinger(selectedSingers)}
+                className="text-xs font-semibold px-4 py-2 bg-accent text-bg rounded-xl hover:bg-accent-hover transition-colors cursor-pointer"
+              >
+                Retry
+              </button>
+              <button
+                onClick={() => router.push("/home")}
+                className="text-xs font-semibold px-4 py-2 bg-bg-ter border border-border-light text-pri rounded-xl hover:bg-surface transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Home size={14} className="text-accent" />
+                <span>Go to Home</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isLoading && !error && selectedSingers.length === 0 && (
+          <div className="text-center py-16 space-y-4 bg-surface rounded-3xl border border-border p-8 max-w-md mx-auto">
+            <Music2 size={40} className="mx-auto text-muted" />
+            <h3 className="text-base font-bold text-pri">No artists selected yet</h3>
+            <p className="text-xs text-sec">
+              Choose your favorite artists or head back to the home feed.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => router.push("/singer-setup")}
+                className="text-xs font-bold px-4 py-2 bg-accent text-bg rounded-xl hover:bg-accent-hover transition-colors cursor-pointer"
+              >
+                Choose Artists
+              </button>
+              <button
+                onClick={() => router.push("/home")}
+                className="text-xs font-semibold px-4 py-2 bg-bg-ter border border-border-light text-pri rounded-xl hover:bg-surface transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Home size={14} className="text-accent" />
+                <span>Go to Home</span>
+              </button>
+            </div>
           </div>
         )}
 

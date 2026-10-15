@@ -1,501 +1,233 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  Play,
-  Pause,
-  SkipBack,
-  SkipForward,
-  Shuffle,
-  Repeat,
-  Repeat1,
-  Volume2,
-  VolumeX,
-  ChevronDown,
-  Minimize2,
-  X,
-  Music2,
-  HardDriveDownload,
-  ListMusic,
-  BookmarkCheck,
-  BookmarkPlus,
-  RefreshCw,
-} from "lucide-react";
+import React from "react";
 import { usePlayer, formatAudioTime } from "./PlayerContext";
-import { Song } from "../../app/types/songs";
-import { getCachedSongIds, toggleCacheSong } from "../../app/lib/cacheDb";
-import { checkStorageQuota } from "../../app/lib/estimateStorage";
+import {
+  PlayIcon,
+  PauseIcon,
+  NextIcon,
+  PrevIcon,
+  ShuffleIcon,
+  RepeatIcon,
+  ChevronDownIcon,
+  CloseIcon,
+  VolumeIcon,
+  MuteIcon,
+} from "./Icons";
 
-export interface FullScreenPlayerProps {
-  song?: Song;
-  onClose?: () => void;
-  onMinimize?: () => void;
-  onSwitchHalf?: () => void;
-  // Backward compatibility overrides
-  isPlaying?: boolean;
-  audioElement?: HTMLAudioElement | null;
-  currentTime?: number;
-  duration?: number;
-  volume?: number;
-  isMuted?: boolean;
-  isShuffle?: boolean;
-  loopMode?: "off" | "all" | "one";
-  onTogglePlay?: () => void;
-  onNext?: () => void;
-  onPrevious?: () => void;
-  onSeek?: (time: number) => void;
-  onVolumeChange?: (vol: number) => void;
-  onToggleMute?: () => void;
-  onToggleLoop?: () => void;
-  onToggleShuffle?: () => void;
-  getImageUrl?: (song: Song) => string;
-}
+export function FullScreenPlayer() {
+  const {
+    currentSong,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    isShuffle,
+    repeatMode,
+    artworkUrl,
+    artistName,
+    nextSongCandidate,
+    togglePlay,
+    nextSong,
+    previousSong,
+    seek,
+    setVolume,
+    toggleMute,
+    toggleShuffle,
+    cycleRepeat,
+    minimize,
+    closePlayer,
+    playSong,
+    playlist,
+  } = usePlayer();
 
-export function FullScreenPlayer({
-  song: directSong,
-  onClose,
-  onMinimize,
-  onSwitchHalf,
-  isPlaying: propIsPlaying,
-  onTogglePlay: propOnTogglePlay,
-  onNext: propOnNext,
-  onPrevious: propOnPrevious,
-  onSeek: propOnSeek,
-  onVolumeChange: propOnVolumeChange,
-  onToggleMute: propOnToggleMute,
-  onToggleLoop: propOnToggleLoop,
-  onToggleShuffle: propOnToggleShuffle,
-  getImageUrl: propGetImageUrl,
-}: FullScreenPlayerProps) {
-  const player = usePlayer();
+  if (!currentSong) return null;
 
-  const activeSong = directSong || player.currentSong;
-  const isPlaying = propIsPlaying !== undefined ? propIsPlaying : player.isPlaying;
-  const coverUrl = propGetImageUrl
-    ? activeSong ? propGetImageUrl(activeSong) : player.artworkUrl
-    : player.artworkUrl;
-  const artist = player.artistName || (activeSong ? (activeSong.artistName || "Unknown Artist") : "");
-  const duration = player.duration;
-  const currentTime = player.currentTime;
-  const progressPercent = duration ? (currentTime / duration) * 100 : 0;
+  const title = currentSong.name || (currentSong as any).title || "Untitled";
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const vol = isMuted ? 0 : volume * 100;
 
-  // Offline Cache State
-  const [isCached, setIsCached] = useState<boolean>(false);
-  const [isCaching, setIsCaching] = useState<boolean>(false);
-
-  useEffect(() => {
-    if (!activeSong?.id) return;
-    let isMounted = true;
-
-    async function checkCachedStatus() {
-      try {
-        const cachedIds = await getCachedSongIds();
-        if (isMounted) {
-          setIsCached(cachedIds.includes(String(activeSong!.id)));
-        }
-      } catch (e) {
-        console.warn("Could not check offline cached status:", e);
-      }
-    }
-
-    checkCachedStatus();
-    return () => {
-      isMounted = false;
-    };
-  }, [activeSong?.id]);
-
-  const handleToggleCache = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!activeSong || isCaching) return;
-
-    if (!isCached) {
-      const quota = await checkStorageQuota();
-      if (quota && quota.isLowStorage) {
-        alert(
-          `Cannot cache track. Device storage is below 3 MB (${quota.remainingMB} MB remaining).`
-        );
-        return;
-      }
-    }
-
-    setIsCaching(true);
-    try {
-      const newStatus = await toggleCacheSong(activeSong, isCached);
-      setIsCached(newStatus);
-    } catch (err) {
-      console.error("Failed to toggle offline song cache:", err);
-    } finally {
-      setIsCaching(false);
-    }
-  };
-
-  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (propOnSeek) {
-      propOnSeek(val);
-    } else {
-      player.seek(val);
-    }
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    if (propOnVolumeChange) {
-      propOnVolumeChange(val);
-    } else {
-      player.setVolume(val);
-    }
-  };
-
-  const handleTogglePlay = () => {
-    if (propOnTogglePlay) propOnTogglePlay();
-    else player.togglePlay();
-  };
-
-  const handleNext = () => {
-    if (propOnNext) propOnNext();
-    else player.nextSong();
-  };
-
-  const handlePrevious = () => {
-    if (propOnPrevious) propOnPrevious();
-    else player.previousSong();
-  };
-
-  const handleToggleMute = () => {
-    if (propOnToggleMute) propOnToggleMute();
-    else player.toggleMute();
-  };
-
-  const handleToggleShuffle = () => {
-    if (propOnToggleShuffle) propOnToggleShuffle();
-    else player.toggleShuffle();
-  };
-
-  const handleToggleLoop = () => {
-    if (propOnToggleLoop) propOnToggleLoop();
-    else player.cycleRepeat();
-  };
-
-  const handleMinimize = () => {
-    if (onMinimize) onMinimize();
-    else player.minimize();
-  };
-
-  const handleSwitchHalf = () => {
-    if (onSwitchHalf) onSwitchHalf();
-    else player.openHalfScreen();
-  };
-
-  const handleClose = () => {
-    if (onClose) onClose();
-    else player.closePlayer();
-  };
-
-  if (!activeSong) return null;
-
-  const effectiveVolume = player.isMuted ? 0 : player.volume;
+  const ghost =
+    "grid h-11 w-11 place-items-center rounded-full transition active:scale-90 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-white";
 
   return (
-    <div className="fixed inset-0 z-50 bg-bg/95 backdrop-blur-3xl flex flex-col justify-between p-5 sm:p-10 select-none overflow-hidden animate-in fade-in duration-300">
-      {/* Dynamic Ambient Background Blur */}
-      <div
-        className="absolute inset-0 -z-10 opacity-30 blur-3xl scale-125 transition-all duration-700 pointer-events-none"
-        style={{
-          backgroundImage: `url(${coverUrl})`,
-          backgroundPosition: "center",
-          backgroundSize: "cover",
-        }}
+    <div
+      className="fixed inset-0 z-[60] flex flex-col overflow-hidden bg-neutral-950 text-white"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Now playing"
+    >
+      <style>{`
+        .fsp-range{-webkit-appearance:none;appearance:none;width:100%;height:20px;background:transparent;cursor:pointer}
+        .fsp-range::-webkit-slider-runnable-track{height:5px;border-radius:9999px;background:linear-gradient(to right,#fff var(--p),rgba(255,255,255,.18) var(--p))}
+        .fsp-range::-moz-range-track{height:5px;border-radius:9999px;background:rgba(255,255,255,.18)}
+        .fsp-range::-moz-range-progress{height:5px;border-radius:9999px;background:#fff}
+        .fsp-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;margin-top:-4.5px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.5);transition:transform .15s}
+        .fsp-range::-moz-range-thumb{width:14px;height:14px;border:0;border-radius:50%;background:#fff}
+        .fsp-range:hover::-webkit-slider-thumb{transform:scale(1.3)}
+        .fsp-range:focus-visible{outline:2px solid #fff;outline-offset:2px;border-radius:9999px}
+        @keyframes fsp-breathe{0%,100%{transform:scale(1.35);opacity:.55}50%{transform:scale(1.55);opacity:.8}}
+        @media (prefers-reduced-motion:no-preference){.fsp-breathe{animation:fsp-breathe 6s ease-in-out infinite}}
+      `}</style>
+
+      {/* Ambient background: the artwork itself becomes the palette */}
+      <img
+        key={artworkUrl}
+        src={artworkUrl}
+        alt=""
+        aria-hidden
+        className={`fsp-breathe pointer-events-none absolute inset-0 h-full w-full object-cover blur-[90px] saturate-150 ${
+          isPlaying ? "" : "[animation-play-state:paused]"
+        }`}
       />
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-bg/70 via-bg/40 to-bg/90 pointer-events-none" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/80" />
 
-      {/* Top Header Bar */}
-      <header className="flex items-center justify-between w-full max-w-5xl mx-auto z-10">
-        <div className="flex items-center gap-2">
-          {/* Minimize Button */}
-          <button
-            onClick={handleMinimize}
-            className="p-2.5 rounded-2xl bg-surface/80 border border-border-light hover:bg-surface text-sec hover:text-pri transition-all active:scale-95 cursor-pointer shadow-md"
-            title="Minimize to bottom bar (Esc)"
-            aria-label="Minimize player"
-          >
-            <ChevronDown size={22} />
-          </button>
-
-          {/* Switch to Half Screen Button */}
-          <button
-            onClick={handleSwitchHalf}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-surface/80 border border-border-light hover:bg-surface text-xs font-semibold text-sec hover:text-pri transition-all active:scale-95 shadow-md cursor-pointer"
-            title="Switch to Half-Screen View (F)"
-          >
-            <Minimize2 size={15} />
-            <span>Half View</span>
-          </button>
-        </div>
-
-        {/* Center Pill: Source & Artist */}
-        <div className="text-center px-4 py-1.5 rounded-full bg-surface/60 border border-border-light backdrop-blur-md max-w-[200px] sm:max-w-xs truncate shadow-sm">
-          <p className="text-[10px] tracking-widest uppercase font-bold text-muted">
-            Now Playing
-          </p>
-          <p className="text-xs font-bold text-accent truncate">{artist}</p>
-        </div>
-
-        {/* Action Controls: Cache offline + Close */}
-        <div className="flex items-center gap-2">
-          {/* Offline Cache Bookmark Button */}
-          <button
-            onClick={handleToggleCache}
-            disabled={isCaching}
-            className={`p-2.5 rounded-2xl border transition-all active:scale-95 shadow-md cursor-pointer ${
-              isCached
-                ? "bg-accent text-bg border-accent/40 shadow-accent/20"
-                : "bg-surface/80 border-border-light text-sec hover:text-pri hover:bg-surface"
-            }`}
-            title={
-              isCaching
-                ? "Saving track offline..."
-                : isCached
-                ? "Saved for offline listening"
-                : "Download to offline cache"
-            }
-            aria-label="Toggle offline storage"
-          >
-            {isCaching ? (
-              <RefreshCw size={19} className="animate-spin" />
-            ) : isCached ? (
-              <BookmarkCheck size={19} />
-            ) : (
-              <BookmarkPlus size={19} />
-            )}
-          </button>
-
-          {/* Close Player */}
-          <button
-            onClick={handleClose}
-            className="p-2.5 rounded-2xl bg-surface/80 border border-border-light hover:bg-red-500/20 text-muted hover:text-red-400 transition-all active:scale-95 shadow-md cursor-pointer"
-            title="Stop & Close Player"
-            aria-label="Close player"
-          >
-            <X size={22} />
-          </button>
-        </div>
+      {/* Top bar */}
+      <header className="relative flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-8">
+        <button onClick={minimize} aria-label="Minimize player" className={ghost}>
+          <ChevronDownIcon className="h-6 w-6" />
+        </button>
+        <p className="text-sm font-medium text-white/70">Now playing</p>
+        <button onClick={closePlayer} aria-label="Close player" className={ghost}>
+          <CloseIcon className="h-5 w-5" />
+        </button>
       </header>
 
-      {/* Main Cover Art Stage */}
-      <main className="flex-1 flex flex-col items-center justify-center py-4 sm:py-6 my-auto min-h-0 z-10">
-        <div className="relative group w-48 h-48 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-92 lg:h-92 aspect-square rounded-3xl overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85)] border border-border-light bg-card transition-all duration-500">
-          <img
-            src={coverUrl}
-            alt={activeSong.name || "Track artwork"}
-            className={`w-full h-full object-cover transition-transform duration-700 ${
-              isPlaying ? "scale-105" : "scale-100"
+      {/* Main */}
+      <main className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-8 px-6 py-4 lg:flex-row lg:gap-16">
+        {/* Cover */}
+        <div className="relative w-full max-w-[min(78vw,42vh)] shrink-0 lg:max-w-[min(32vw,60vh)]">
+          <div
+            className={`relative aspect-square w-full transition-transform duration-700 ease-out ${
+              isPlaying ? "scale-100" : "scale-[0.88]"
             }`}
-          />
-
-          {/* Offline badge overlay */}
-          {(isCached || activeSong.cacheKey) && (
-            <div
-              className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full bg-accent text-bg font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md backdrop-blur-md"
-              title="Available offline"
-            >
-              <HardDriveDownload size={11} />
-              <span>Offline</span>
-            </div>
-          )}
-
-          {/* Ambient center pulse animation */}
-          {isPlaying && (
-            <div className="absolute inset-0 bg-accent/5 pointer-events-none animate-pulse" />
-          )}
-        </div>
-
-        {/* Up Next Snippet */}
-        {player.nextSongCandidate && (
-          <div className="flex items-center gap-1.5 mt-4 px-3.5 py-1.5 rounded-full bg-surface/50 border border-border-light backdrop-blur-sm text-xs text-muted max-w-sm truncate shadow-sm">
-            <ListMusic size={13} className="text-accent shrink-0" />
-            <span className="truncate">
-              Up Next:{" "}
-              <strong className="text-sec font-semibold">
-                {player.nextSongCandidate.name}
-              </strong>
-            </span>
-          </div>
-        )}
-      </main>
-
-      {/* Bottom Controls Stage */}
-      <footer className="w-full max-w-3xl mx-auto space-y-4 sm:space-y-6 z-10">
-        {/* Track Title and Artist */}
-        <div className="text-center space-y-1">
-          <h1 className="text-xl sm:text-3xl lg:text-4xl font-black text-pri tracking-tight truncate px-4">
-            {activeSong.name || activeSong.title}
-          </h1>
-          <p className="text-sm sm:text-base font-semibold text-accent truncate px-4">
-            {artist}
-          </p>
-        </div>
-
-        {/* Live Timeline Scrubber */}
-        <div className="space-y-1.5 px-2">
-          <div className="relative flex items-center group">
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeekChange}
-              style={{
-                background: `linear-gradient(to right, var(--accent, #eab308) ${progressPercent}%, var(--border, #374151) ${progressPercent}%)`,
-              }}
-              className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-accent transition-all [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer"
-              aria-label="Seek time"
+          >
+            <img
+              src={artworkUrl}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full translate-y-6 scale-95 rounded-[2rem] object-cover opacity-70 blur-2xl"
+            />
+            <img
+              key={artworkUrl}
+              src={artworkUrl}
+              alt={`Cover art for ${title}`}
+              className="relative h-full w-full rounded-[2rem] object-cover shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)] ring-1 ring-white/15"
             />
           </div>
-          <div className="flex justify-between text-xs font-semibold text-muted px-0.5">
-            <span>{formatAudioTime(currentTime)}</span>
-            <span>{formatAudioTime(duration)}</span>
+        </div>
+
+        {/* Info + controls */}
+        <div className="w-full max-w-md lg:max-w-lg">
+          <div className="mb-5 text-center lg:text-left">
+            <h2 className="text-balance text-2xl font-bold leading-tight tracking-tight sm:text-4xl">
+              {title}
+            </h2>
+            <p className="mt-1.5 truncate text-base text-white/65 sm:text-lg">{artistName}</p>
           </div>
-        </div>
 
-        {/* Primary Playback Buttons */}
-        <div className="flex items-center justify-center gap-5 sm:gap-8 py-1">
-          {/* Shuffle Toggle */}
-          <button
-            onClick={handleToggleShuffle}
-            className={`p-2.5 rounded-xl transition-all cursor-pointer relative active:scale-95 ${
-              player.isShuffle
-                ? "text-accent bg-accent/15"
-                : "text-muted hover:text-pri"
-            }`}
-            title={player.isShuffle ? "Shuffle On (S)" : "Shuffle Off (S)"}
-            aria-label="Toggle shuffle"
-          >
-            <Shuffle size={20} />
-            {player.isShuffle && (
-              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-accent" />
-            )}
-          </button>
-
-          {/* Previous Track */}
-          <button
-            onClick={handlePrevious}
-            className="p-3 text-sec hover:text-pri transition-all active:scale-90 cursor-pointer"
-            title="Previous song (Shift + Left Arrow)"
-            aria-label="Previous track"
-          >
-            <SkipBack size={26} />
-          </button>
-
-          {/* Big Play / Pause Button */}
-          <button
-            onClick={handleTogglePlay}
-            className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-bg flex items-center justify-center shadow-[0_10px_35px_rgba(212,175,55,0.4)] hover:brightness-110 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-            title={isPlaying ? "Pause (Space)" : "Play (Space)"}
-            aria-label={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? (
-              <Pause size={30} fill="currentColor" />
-            ) : (
-              <Play size={30} fill="currentColor" className="ml-1" />
-            )}
-          </button>
-
-          {/* Next Track */}
-          <button
-            onClick={handleNext}
-            className="p-3 text-sec hover:text-pri transition-all active:scale-90 cursor-pointer"
-            title="Next song (Shift + Right Arrow)"
-            aria-label="Next track"
-          >
-            <SkipForward size={26} />
-          </button>
-
-          {/* Loop Mode Toggle */}
-          <button
-            onClick={handleToggleLoop}
-            className={`p-2.5 rounded-xl transition-all cursor-pointer relative active:scale-95 ${
-              player.repeatMode !== "off"
-                ? "text-accent bg-accent/15"
-                : "text-muted hover:text-pri"
-            }`}
-            title={`Repeat mode: ${player.repeatMode} (R)`}
-            aria-label="Toggle repeat mode"
-          >
-            {player.repeatMode === "one" ? (
-              <Repeat1 size={20} />
-            ) : (
-              <Repeat size={20} />
-            )}
-            {player.repeatMode !== "off" && (
-              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-accent" />
-            )}
-          </button>
-        </div>
-
-        {/* Volume & Shortcut Bar */}
-        <div className="flex items-center justify-between pt-2 px-2 border-t border-border/40 text-muted">
-          {/* Volume Control */}
-          <div className="flex items-center gap-2 group">
-            <button
-              onClick={handleToggleMute}
-              className="p-1.5 text-muted hover:text-accent transition-colors cursor-pointer"
-              title={player.isMuted ? "Unmute (M)" : "Mute (M)"}
-              aria-label={player.isMuted ? "Unmute" : "Mute"}
-            >
-              {player.isMuted || effectiveVolume === 0 ? (
-                <VolumeX size={18} className="text-red-400" />
-              ) : (
-                <Volume2 size={18} />
-              )}
-            </button>
-
+          {/* Seek */}
+          <div>
             <input
               type="range"
+              className="fsp-range"
+              min={0}
+              max={duration || 0}
+              step={0.1}
+              value={Math.min(currentTime, duration || 0)}
+              onChange={(e) => seek(Number(e.target.value))}
+              style={{ ["--p" as any]: `${progress}%` }}
+              aria-label="Seek"
+            />
+            <div className="mt-1 flex justify-between text-xs tabular-nums text-white/60">
+              <span>{formatAudioTime(currentTime)}</span>
+              <span>{formatAudioTime(duration)}</span>
+            </div>
+          </div>
+
+          {/* Transport */}
+          <div className="mt-4 flex items-center justify-between">
+            <button
+              onClick={toggleShuffle}
+              aria-label="Shuffle"
+              aria-pressed={isShuffle}
+              className={`${ghost} ${isShuffle ? "text-white" : "text-white/45"}`}
+            >
+              <ShuffleIcon className="h-5 w-5" />
+            </button>
+            <button onClick={previousSong} aria-label="Previous song" className={`${ghost} h-14 w-14`}>
+              <PrevIcon className="h-7 w-7" />
+            </button>
+            <button
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause" : "Play"}
+              className="grid h-[72px] w-[72px] place-items-center rounded-full bg-white text-neutral-950 shadow-[0_10px_40px_-5px_rgba(255,255,255,0.35)] transition hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+            >
+              {isPlaying ? <PauseIcon className="h-8 w-8" /> : <PlayIcon className="h-8 w-8 translate-x-0.5" />}
+            </button>
+            <button onClick={nextSong} aria-label="Next song" className={`${ghost} h-14 w-14`}>
+              <NextIcon className="h-7 w-7" />
+            </button>
+            <button
+              onClick={cycleRepeat}
+              aria-label={`Repeat: ${repeatMode}`}
+              className={`${ghost} relative ${repeatMode === "off" ? "text-white/45" : "text-white"}`}
+            >
+              <RepeatIcon className="h-5 w-5" />
+              {repeatMode === "one" && (
+                <span className="absolute right-1.5 top-1.5 grid h-4 w-4 place-items-center rounded-full bg-white text-[10px] font-bold text-neutral-950">
+                  1
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Volume */}
+          <div className="mt-4 flex items-center gap-3">
+            <button onClick={toggleMute} aria-label={isMuted ? "Unmute" : "Mute"} className="text-white/70 transition hover:text-white">
+              {isMuted || volume === 0 ? <MuteIcon className="h-5 w-5" /> : <VolumeIcon className="h-5 w-5" />}
+            </button>
+            <input
+              type="range"
+              className="fsp-range"
               min={0}
               max={1}
               step={0.01}
-              value={effectiveVolume}
-              onChange={handleVolumeChange}
-              style={{
-                background: `linear-gradient(to right, var(--accent, #eab308) ${
-                  effectiveVolume * 100
-                }%, var(--border, #374151) ${effectiveVolume * 100}%)`,
-              }}
-              className="w-20 sm:w-28 h-1.5 rounded-lg appearance-none cursor-pointer accent-accent transition-all [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:cursor-pointer"
-              aria-label="Volume slider"
+              value={isMuted ? 0 : volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              style={{ ["--p" as any]: `${vol}%` }}
+              aria-label="Volume"
             />
           </div>
 
-          {/* Key Hints */}
-          <div className="hidden md:flex items-center gap-3 text-[11px]">
-            <span>
-              <kbd className="px-1.5 py-0.5 rounded bg-surface border border-border-light text-pri font-mono text-[10px]">
-                Space
-              </kbd>{" "}
-              Play/Pause
-            </span>
-            <span>
-              <kbd className="px-1.5 py-0.5 rounded bg-surface border border-border-light text-pri font-mono text-[10px]">
-                Esc
-              </kbd>{" "}
-              Minimize
-            </span>
-            <span>
-              <kbd className="px-1.5 py-0.5 rounded bg-surface border border-border-light text-pri font-mono text-[10px]">
-                F
-              </kbd>{" "}
-              Half View
-            </span>
-            <span>
-              <kbd className="px-1.5 py-0.5 rounded bg-surface border border-border-light text-pri font-mono text-[10px]">
-                M
-              </kbd>{" "}
-              Mute
-            </span>
-          </div>
+          {/* Up next */}
+          {nextSongCandidate && (
+            <button
+              onClick={() => playSong(nextSongCandidate, playlist)}
+              className="mt-6 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-2.5 text-left backdrop-blur-md transition hover:bg-white/[0.12] focus-visible:outline-2 focus-visible:outline-white"
+            >
+              <img
+                src={
+                  (Array.isArray(nextSongCandidate.image) && nextSongCandidate.image.at(-1)?.url) ||
+                  (typeof nextSongCandidate.image === "string" ? nextSongCandidate.image : "") ||
+                  "/placeholder-music.png"
+                }
+                alt=""
+                className="h-11 w-11 rounded-lg object-cover"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-white/55">Up next</span>
+                <span className="block truncate text-sm font-semibold">
+                  {nextSongCandidate.name || (nextSongCandidate as any).title}
+                </span>
+              </span>
+            </button>
+          )}
         </div>
-      </footer>
+      </main>
+
+      <div className="h-[max(1rem,env(safe-area-inset-bottom))]" />
     </div>
   );
 }

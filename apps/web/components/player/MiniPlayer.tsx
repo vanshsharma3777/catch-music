@@ -1,216 +1,112 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
+import { usePlayer } from "./PlayerContext";
 import {
-  Play,
-  Pause,
-  SkipForward,
-  SkipBack,
-  Volume2,
-  VolumeX,
-  Maximize2,
-  ChevronUp,
-  X,
-  HardDriveDownload,
-} from "lucide-react";
-import { usePlayer, formatAudioTime } from "./PlayerContext";
-import { Song } from "../../app/types/songs";
+  PlayIcon,
+  PauseIcon,
+  NextIcon,
+  PrevIcon,
+  ExpandIcon,
+  CloseIcon,
+} from "./Icons";
 
-export interface MiniPlayerProps {
-  currentSong?: Song | null;
-  isPlaying?: boolean;
-  audioElement?: HTMLAudioElement | null;
-  isMuted?: boolean;
-  onTogglePlay?: () => void;
-  onNext?: () => void;
-  onPrevious?: () => void;
-  onToggleMute?: () => void;
-  onExpand?: () => void;
-  onClose?: () => void;
-  getImageUrl?: (song: Song) => string;
-}
+export function MiniPlayer() {
+  const {
+    currentSong,
+    isPlaying,
+    currentTime,
+    duration,
+    artworkUrl,
+    artistName,
+    togglePlay,
+    nextSong,
+    previousSong,
+    openFullScreen,
+    closePlayer,
+  } = usePlayer();
 
-export function MiniPlayer({
-  currentSong: propSong,
-  isPlaying: propIsPlaying,
-  isMuted: propIsMuted,
-  onTogglePlay: propOnTogglePlay,
-  onNext: propOnNext,
-  onPrevious: propOnPrevious,
-  onToggleMute: propOnToggleMute,
-  onExpand: propOnExpand,
-  onClose: propOnClose,
-  getImageUrl: propGetImageUrl,
-}: MiniPlayerProps) {
-  const player = usePlayer();
+  if (!currentSong) return null;
 
-  const activeSong = propSong || player.currentSong;
-  if (!activeSong) return null;
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const title = currentSong.name || (currentSong as any).title || "Untitled";
 
-  const isPlaying = propIsPlaying !== undefined ? propIsPlaying : player.isPlaying;
-  const isMuted = propIsMuted !== undefined ? propIsMuted : player.isMuted;
-  const coverUrl = propGetImageUrl
-    ? propGetImageUrl(activeSong)
-    : player.artworkUrl;
-  const artist = player.artistName || activeSong.artistName || "Unknown Artist";
-
-  const progressPercent = player.duration
-    ? (player.currentTime / player.duration) * 100
-    : 0;
-
-  const handleExpand = () => {
-    if (propOnExpand) {
-      propOnExpand();
-    } else {
-      player.openHalfScreen();
-    }
-  };
-
-  const handleTogglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (propOnTogglePlay) propOnTogglePlay();
-    else player.togglePlay();
-  };
-
-  const handlePrevious = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (propOnPrevious) propOnPrevious();
-    else player.previousSong();
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (propOnNext) propOnNext();
-    else player.nextSong();
-  };
-
-  const handleToggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (propOnToggleMute) propOnToggleMute();
-    else player.toggleMute();
-  };
-
-  const handleClose = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (propOnClose) propOnClose();
-    else player.closePlayer();
-  };
+  const btn =
+    "grid place-items-center rounded-full text-white/80 transition hover:text-white hover:bg-white/10 active:scale-90 focus-visible:outline-2 focus-visible:outline-white";
 
   return (
     <div
-      onClick={handleExpand}
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[94%] max-w-4xl bg-surface/95 backdrop-blur-2xl border border-border-light rounded-2xl p-2.5 sm:p-3 px-4 sm:px-6 shadow-[0_10px_35px_rgba(0,0,0,0.7)] z-40 flex flex-col gap-2 cursor-pointer transition-all hover:scale-[1.01] hover:border-accent/40 animate-in slide-in-from-bottom duration-300"
+      className="fixed inset-x-0 bottom-0 z-50 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6"
       role="region"
-      aria-label="Mini music player"
+      aria-label="Now playing"
     >
-      <div className="flex items-center justify-between gap-3 sm:gap-4">
-        {/* Left: Artwork + Title */}
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="relative h-11 w-11 sm:h-12 sm:w-12 rounded-xl overflow-hidden border border-border-light shrink-0 bg-bg">
-            <img
-              src={coverUrl}
-              alt={activeSong.name || "Track cover"}
-              className="w-full h-full object-cover"
-            />
-            {activeSong.cacheKey && (
-              <span
-                className="absolute top-1 left-1 p-0.5 rounded-full bg-accent text-bg shadow-sm"
-                title="Downloaded offline song"
-              >
-                <HardDriveDownload size={10} />
-              </span>
-            )}
-          </div>
-
-          <div className="min-w-0">
-            <p className="text-xs sm:text-sm font-extrabold text-pri truncate">
-              {activeSong.name || activeSong.title}
-            </p>
-            <p className="text-[11px] text-sec truncate">{artist}</p>
-          </div>
-        </div>
-
-        {/* Right: Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
-          {/* Previous */}
-          <button
-            onClick={handlePrevious}
-            className="p-2 text-sec hover:text-pri transition-colors hidden sm:block active:scale-95 cursor-pointer"
-            aria-label="Previous track"
-            title="Previous track"
-          >
-            <SkipBack size={18} />
-          </button>
-
-          {/* Play/Pause */}
-          <button
-            onClick={handleTogglePlay}
-            className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-bg flex items-center justify-center shadow-lg hover:brightness-110 active:scale-90 transition-all shrink-0 cursor-pointer"
-            aria-label={isPlaying ? "Pause" : "Play"}
-            title={isPlaying ? "Pause" : "Play"}
-          >
-            {isPlaying ? (
-              <Pause size={17} fill="currentColor" />
-            ) : (
-              <Play size={17} fill="currentColor" className="ml-0.5" />
-            )}
-          </button>
-
-          {/* Next */}
-          <button
-            onClick={handleNext}
-            className="p-2 text-sec hover:text-pri transition-colors hidden sm:block active:scale-95 cursor-pointer"
-            aria-label="Next track"
-            title="Next track"
-          >
-            <SkipForward size={18} />
-          </button>
-
-          {/* Mute */}
-          <button
-            onClick={handleToggleMute}
-            className="p-2 text-sec hover:text-pri transition-colors hidden sm:block cursor-pointer"
-            aria-label={isMuted ? "Unmute" : "Mute"}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <VolumeX size={18} className="text-red-400" />
-            ) : (
-              <Volume2 size={18} />
-            )}
-          </button>
-
-          {/* Open Full / Half View */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              player.openHalfScreen();
-            }}
-            className="p-2 text-sec hover:text-accent transition-colors ml-1 cursor-pointer"
-            title="Expand Half View"
-            aria-label="Expand player"
-          >
-            <ChevronUp size={18} />
-          </button>
-
-          {/* Close */}
-          <button
-            onClick={handleClose}
-            className="p-2 text-muted hover:text-red-400 transition-colors cursor-pointer"
-            title="Close player"
-            aria-label="Close player"
-          >
-            <X size={17} />
-          </button>
-        </div>
-      </div>
-
-      {/* Progress Track */}
-      <div className="w-full bg-border-light h-1 rounded-full overflow-hidden">
-        <div
-          className="bg-accent h-full transition-all duration-300"
-          style={{ width: `${progressPercent}%` }}
+      <div className="relative mx-auto max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-neutral-950/80 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.8)] backdrop-blur-2xl">
+        {/* ambient glow from artwork */}
+        <img
+          src={artworkUrl}
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute -left-10 top-1/2 h-40 w-72 -translate-y-1/2 scale-150 object-cover opacity-40 blur-3xl"
         />
+
+        <div className="relative flex items-center gap-3 p-2.5 pr-3">
+          <button
+            onClick={openFullScreen}
+            aria-label="Open full screen player"
+            className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-white"
+          >
+            <span className="relative block h-12 w-12 shrink-0 sm:h-14 sm:w-14">
+              <img
+                src={artworkUrl}
+                alt=""
+                className={`h-full w-full rounded-full object-cover shadow-lg ring-1 ring-white/20 motion-safe:animate-[spin_14s_linear_infinite] ${
+                  isPlaying ? "" : "[animation-play-state:paused]"
+                }`}
+              />
+              {/* spindle hole makes the cover read as a record */}
+              <span className="absolute left-1/2 top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-950 ring-1 ring-white/30" />
+            </span>
+
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-white sm:text-base">
+                {title}
+              </span>
+              <span className="block truncate text-xs text-white/60 sm:text-sm">
+                {artistName}
+              </span>
+            </span>
+          </button>
+
+          <div className="flex items-center gap-0.5 sm:gap-1">
+            <button onClick={previousSong} aria-label="Previous song" className={`${btn} hidden h-9 w-9 sm:grid`}>
+              <PrevIcon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={togglePlay}
+              aria-label={isPlaying ? "Pause" : "Play"}
+              className="grid h-11 w-11 place-items-center rounded-full bg-white text-neutral-950 shadow-lg transition hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              {isPlaying ? <PauseIcon className="h-5 w-5" /> : <PlayIcon className="h-5 w-5 translate-x-px" />}
+            </button>
+            <button onClick={nextSong} aria-label="Next song" className={`${btn} h-9 w-9`}>
+              <NextIcon className="h-5 w-5" />
+            </button>
+            <button onClick={openFullScreen} aria-label="Expand player" className={`${btn} hidden h-9 w-9 sm:grid`}>
+              <ExpandIcon className="h-5 w-5" />
+            </button>
+            <button onClick={closePlayer} aria-label="Close player" className={`${btn} h-9 w-9`}>
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* progress hairline */}
+        <div className="relative h-[3px] w-full bg-white/10">
+          <div
+            className="h-full bg-white transition-[width] duration-200 ease-linear"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
       </div>
     </div>
   );

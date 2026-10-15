@@ -3,7 +3,6 @@
 import React from "react";
 import { usePlayer } from "./PlayerContext";
 import { FullScreenPlayer } from "./FullScreenPlayer";
-import { HalfScreenPlayer } from "./HalfScreenPlayer";
 import { MiniPlayer } from "./MiniPlayer";
 
 export function GlobalPlayer() {
@@ -15,10 +14,6 @@ export function GlobalPlayer() {
 
   if (screenMode === "full") {
     return <FullScreenPlayer />;
-  }
-
-  if (screenMode === "half") {
-    return <HalfScreenPlayer />;
   }
 
   if (screenMode === "mini") {
