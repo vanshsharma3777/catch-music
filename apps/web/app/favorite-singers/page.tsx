@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import axios from "axios";
 import { Play, Pause, Music2, RefreshCw, BookmarkCheck, BookmarkPlus, Home } from "lucide-react";
 import { SINGER_DATABASE, Singer } from "../lib/singersDB";
-import FullscreenPlayer from "../../components/FullscreenPlayer";
-import SmallScreenPlayer from "../../components/SmallScreenPlayer";
 import { Song } from "../types/songs";
 import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
 import { checkStorageQuota } from "../lib/estimateStorage";
-import { addRecentSong } from "../lib/recentSongs";
-
+import { usePlayer } from "../../components/player";
 
 interface SingerSongsMap {
   singer: Singer;
@@ -21,6 +18,8 @@ interface SingerSongsMap {
 function FavoriteSingersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const player = usePlayer();
+
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -32,118 +31,19 @@ function FavoriteSingersContent() {
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
   const [isCachingAny, setIsCachingAny] = useState<boolean>(false);
 
-  // Audio Player State
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const [isPlayerExpanded, setIsPlayerExpanded] = useState<boolean>(false);
-
-  // Audio Control States
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(1);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isShuffle, setIsShuffle] = useState<boolean>(false);
-  const [loopMode, setLoopMode] = useState<"off" | "all" | "one">("off");
-
-  const stateRef = useRef({
-    currentSong,
-    isShuffle,
-    loopMode,
-    groupedSongs,
-    isPlaying,
-    audioElement,
-  });
-
-  useEffect(() => {
-    stateRef.current = {
-      currentSong,
-      isShuffle,
-      loopMode,
-      groupedSongs,
-      isPlaying,
-      audioElement,
-    };
-  }, [currentSong, isShuffle, loopMode, groupedSongs, isPlaying, audioElement]);
-
   // Sync cache state on mount
   useEffect(() => {
     async function syncCacheStatus() {
       try {
         const ids = await getCachedSongIds();
         setCachedSongIds(new Set(ids));
-        await verifyStorageCapacity(); // Check quota on mount
+        await verifyStorageCapacity();
       } catch (err) {
         console.error("Failed to load cached song IDs:", err);
       }
     }
     syncCacheStatus();
   }, []);
-
-  // Sync Audio Time/Duration & Cleanup on Unmount
-  useEffect(() => {
-    if (!audioElement) return;
-
-    const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
-    const handleLoadedMetadata = () => setDuration(audioElement.duration || 0);
-    const handleEnded = () => handleTrackEnded();
-
-    audioElement.addEventListener("timeupdate", handleTimeUpdate);
-    audioElement.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audioElement.addEventListener("ended", handleEnded);
-
-    return () => {
-      audioElement.removeEventListener("timeupdate", handleTimeUpdate);
-      audioElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audioElement.removeEventListener("ended", handleEnded);
-    };
-  }, [audioElement]);
-
-  // Manage body scroll and Escape key binding
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isPlayerExpanded) {
-        setIsPlayerExpanded(false);
-      }
-    };
-
-    if (isPlayerExpanded) {
-      document.body.style.overflow = "hidden";
-      window.addEventListener("keydown", handleKeyDown);
-    } else {
-      document.body.style.overflow = "";
-    }
-
-    return () => {
-      document.body.style.overflow = "";
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isPlayerExpanded]);
-
-  // Global Keyboard Controls (Spacebar Toggle)
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === "input" || activeTag === "textarea") return;
-
-      if (e.code === "Space" && !isPlayerExpanded) {
-        e.preventDefault();
-        const { currentSong: activeSong, isPlaying: playing, audioElement: audio } = stateRef.current;
-        if (activeSong && audio) {
-          if (playing) {
-            audio.pause();
-            setIsPlaying(false);
-          } else {
-            audio.play().catch(console.error);
-            setIsPlaying(true);
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [isPlayerExpanded]);
 
   // Load preferences / URL parameters
   useEffect(() => {
@@ -178,7 +78,6 @@ function FavoriteSingersContent() {
 
     if (status) {
       setRemainingStorage(status.remainingMB);
-      console.log(status.remainingMB);
     }
   };
 
@@ -191,7 +90,7 @@ function FavoriteSingersContent() {
 
     if (isCachingAny) return;
 
-    const songId = song.id;
+    const songId = String(song.id);
     const isCurrentlyCached = cachedSongIds.has(songId);
 
     if (!isCurrentlyCached) {
@@ -212,13 +111,11 @@ function FavoriteSingersContent() {
 
       setCachedSongIds((prev) => {
         const updated = new Set(prev);
-
         if (isNowCached) {
           updated.add(songId);
         } else {
           updated.delete(songId);
         }
-
         return updated;
       });
 
@@ -302,123 +199,8 @@ function FavoriteSingersContent() {
     }
   };
 
-  const playTrack = (song: Song) => {
-    const audioUrl = getAudioUrl(song);
-    if (!audioUrl) {
-      alert("Audio stream not available for this track.");
-      return;
-    }
-
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    }
-
-    const newAudio = new Audio(audioUrl);
-    newAudio.volume = isMuted ? 0 : volume;
-    newAudio.muted = isMuted;
-
-    newAudio.play().catch((e) => console.error("Playback failed:", e));
-
-    setAudioElement(newAudio);
-    setCurrentSong(song);
-    setIsPlaying(true);
-
-    // Save to recently played list
-    addRecentSong(song);
-  };
-
   const handlePlaySong = (song: Song) => {
-    if (currentSong?.id === song.id) {
-      if (isPlaying) {
-        audioElement?.pause();
-        setIsPlaying(false);
-      } else {
-        audioElement?.play().catch(console.error);
-        setIsPlaying(true);
-      }
-      return;
-    }
-    playTrack(song);
-  };
-
-  const handleNextSong = () => {
-    const { currentSong: activeSong, isShuffle: shuffle } = stateRef.current;
-    if (!flatPlaylist.length || !activeSong) return;
-
-    let nextTrack: Song | undefined;
-
-    if (shuffle) {
-      const randomIndex = Math.floor(Math.random() * flatPlaylist.length);
-      nextTrack = flatPlaylist[randomIndex];
-    } else {
-      const currentIndex = flatPlaylist.findIndex((s) => s.id === activeSong.id);
-      const nextIndex = (currentIndex + 1) % flatPlaylist.length;
-      nextTrack = flatPlaylist[nextIndex];
-    }
-
-    if (nextTrack) playTrack(nextTrack);
-  };
-
-  const handlePreviousSong = () => {
-    const { currentSong: activeSong } = stateRef.current;
-    if (!flatPlaylist.length || !activeSong) return;
-
-    if (audioElement && audioElement.currentTime > 3) {
-      audioElement.currentTime = 0;
-      return;
-    }
-
-    const currentIndex = flatPlaylist.findIndex((s) => s.id === activeSong.id);
-    const prevIndex = (currentIndex - 1 + flatPlaylist.length) % flatPlaylist.length;
-    const prevTrack = flatPlaylist[prevIndex];
-
-    if (prevTrack) playTrack(prevTrack);
-  };
-
-  const handleTrackEnded = () => {
-    const { loopMode: currentLoop, audioElement: audio } = stateRef.current;
-
-    if (currentLoop === "one") {
-      if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(console.error);
-      }
-      return;
-    }
-
-    handleNextSong();
-  };
-
-  const handleVolumeChange = (newVolume: number) => {
-    const val = Math.max(0, Math.min(1, newVolume));
-    setVolume(val);
-    if (audioElement) audioElement.volume = val;
-    if (val > 0 && isMuted) {
-      setIsMuted(false);
-      if (audioElement) audioElement.muted = false;
-    }
-  };
-
-  const handleToggleMute = () => {
-    const nextMuteState = !isMuted;
-    setIsMuted(nextMuteState);
-    if (audioElement) audioElement.muted = nextMuteState;
-  };
-
-  const handleToggleLoop = () => {
-    setLoopMode((prev) => (prev === "off" ? "all" : prev === "all" ? "one" : "off"));
-  };
-
-  const handleToggleShuffle = () => {
-    setIsShuffle((prev) => !prev);
-  };
-
-  const handleSeek = (timeInSeconds: number) => {
-    if (audioElement) {
-      audioElement.currentTime = timeInSeconds;
-      setCurrentTime(timeInSeconds);
-    }
+    player.playSong(song, flatPlaylist);
   };
 
   const getImageUrl = (song: Song) => {
@@ -426,13 +208,6 @@ function FavoriteSingersContent() {
       return song.image[song.image.length - 1]?.url || "/placeholder-music.png";
     }
     return typeof song.image === "string" ? song.image : "/placeholder-music.png";
-  };
-
-  const getAudioUrl = (song: Song) => {
-    if (Array.isArray(song.downloadUrl)) {
-      return song.downloadUrl[song.downloadUrl.length - 1]?.url || "";
-    }
-    return typeof song.downloadUrl === "string" ? song.downloadUrl : "";
   };
 
   return (
@@ -512,9 +287,11 @@ function FavoriteSingersContent() {
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {songs.map((song, idx) => {
-                    const isThisPlaying = currentSong?.id === song.id && isPlaying;
-                    const isCached = cachedSongIds.has(song.id);
-                    const isCaching = cachingIds.has(song.id);
+                    const isThisPlaying =
+                      String(player.currentSong?.id) === String(song.id) &&
+                      player.isPlaying;
+                    const isCached = cachedSongIds.has(String(song.id));
+                    const isCaching = cachingIds.has(String(song.id));
 
                     return (
                       <div
@@ -592,45 +369,6 @@ function FavoriteSingersContent() {
             );
           })}
       </main>
-
-      {isPlayerExpanded && currentSong && (
-        <FullscreenPlayer
-          song={currentSong}
-          isPlaying={isPlaying}
-          audioElement={audioElement}
-          currentTime={currentTime}
-          duration={duration}
-          volume={volume}
-          isMuted={isMuted}
-          isShuffle={isShuffle}
-          loopMode={loopMode}
-          onTogglePlay={() => handlePlaySong(currentSong)}
-          onNext={handleNextSong}
-          onPrevious={handlePreviousSong}
-          onSeek={handleSeek}
-          onVolumeChange={handleVolumeChange}
-          onToggleMute={handleToggleMute}
-          onToggleLoop={handleToggleLoop}
-          onToggleShuffle={handleToggleShuffle}
-          onMinimize={() => setIsPlayerExpanded(false)}
-          getImageUrl={getImageUrl}
-        />
-      )}
-
-      {currentSong && !isPlayerExpanded && (
-        <SmallScreenPlayer
-          currentSong={currentSong}
-          isPlaying={isPlaying}
-          audioElement={audioElement}
-          isMuted={isMuted}
-          onTogglePlay={() => handlePlaySong(currentSong)}
-          onNext={handleNextSong}
-          onPrevious={handlePreviousSong}
-          onToggleMute={handleToggleMute}
-          onExpand={() => setIsPlayerExpanded(true)}
-          getImageUrl={getImageUrl}
-        />
-      )}
     </div>
   );
 }

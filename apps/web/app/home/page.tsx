@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import axios from "axios";
@@ -22,17 +22,17 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
-import FullscreenPlayer from "../../components/FullscreenPlayer";
-import SmallScreenPlayer from "../../components/SmallScreenPlayer";
+import { usePlayer } from "../../components/player";
 import { Song } from "../types/songs";
 import { Singer } from "../lib/singersDB";
 import { getAllSongs, getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
-import { getRecentSongs, addRecentSong } from "../lib/recentSongs";
+import { getRecentSongs } from "../lib/recentSongs";
 import { checkStorageQuota } from "../lib/estimateStorage";
 
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
+  const player = usePlayer();
 
   // User & Onboarding State
   const [favoriteSingers, setFavoriteSingers] = useState<Singer[]>([]);
@@ -49,29 +49,6 @@ export default function HomePage() {
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
   const [isCachingAny, setIsCachingAny] = useState(false);
   const [remainingStorage, setRemainingStorage] = useState<number | null>(null);
-
-  // Audio Player State
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-  const [isPlayerExpanded, setIsPlayerExpanded] = useState<boolean>(false);
-
-  // Audio Control States
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolume] = useState<number>(1);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isShuffle, setIsShuffle] = useState<boolean>(false);
-  const [loopMode, setLoopMode] = useState<"off" | "all" | "one">("off");
-
-  const stateRef = useRef({
-    currentSong,
-    isShuffle,
-    loopMode,
-    allPlayableSongs: [] as Song[],
-    isPlaying,
-    audioElement,
-  });
 
   const allPlayableSongs = useMemo(() => {
     const list: Song[] = [];
@@ -92,16 +69,12 @@ export default function HomePage() {
     return list;
   }, [recentTracks, suggestedTracks, cachedTracks]);
 
+  // Sync recent tracks whenever current song changes
   useEffect(() => {
-    stateRef.current = {
-      currentSong,
-      isShuffle,
-      loopMode,
-      allPlayableSongs,
-      isPlaying,
-      audioElement,
-    };
-  }, [currentSong, isShuffle, loopMode, allPlayableSongs, isPlaying, audioElement]);
+    if (player.currentSong) {
+      setRecentTracks(getRecentSongs());
+    }
+  }, [player.currentSong]);
 
   useEffect(() => {
     if (authStatus === "unauthenticated") {
@@ -121,7 +94,6 @@ export default function HomePage() {
             singers = data.favoriteSingers;
             localStorage.setItem("catchmusic_preferences", JSON.stringify(singers));
           } else {
-
             const local = localStorage.getItem("catchmusic_preferences");
             if (local) {
               try {
@@ -140,7 +112,6 @@ export default function HomePage() {
           }
 
           if (singers.length === 0) {
-
             router.replace("/singer-setup");
             return;
           }
@@ -220,173 +191,8 @@ export default function HomePage() {
     }
   };
 
-  useEffect(() => {
-    if (!audioElement) return;
-
-    const handleTimeUpdate = () => setCurrentTime(audioElement.currentTime);
-    const handleLoadedMetadata = () => setDuration(audioElement.duration || 0);
-    const handleEnded = () => handleTrackEnded();
-
-    audioElement.addEventListener("timeupdate", handleTimeUpdate);
-    audioElement.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audioElement.addEventListener("ended", handleEnded);
-
-    return () => {
-      audioElement.removeEventListener("timeupdate", handleTimeUpdate);
-      audioElement.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audioElement.removeEventListener("ended", handleEnded);
-    };
-  }, [audioElement]);
-
-  useEffect(() => {
-    const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      const activeTag = document.activeElement?.tagName.toLowerCase();
-      if (activeTag === "input" || activeTag === "textarea") return;
-
-      if (e.code === "Space" && !isPlayerExpanded) {
-        e.preventDefault();
-        const { currentSong: activeSong, isPlaying: playing, audioElement: audio } =
-          stateRef.current;
-        if (activeSong && audio) {
-          if (playing) {
-            audio.pause();
-            setIsPlaying(false);
-          } else {
-            audio.play().catch(console.error);
-            setIsPlaying(true);
-          }
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [isPlayerExpanded]);
-
-  useEffect(() => {
-    document.body.style.overflow = isPlayerExpanded ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [isPlayerExpanded]);
-
-  const playTrack = (song: Song) => {
-    const audioUrl = getAudioUrl(song)
-   console.log("play track" , audioUrl)
-
-    if (!audioUrl) {
-      alert("Audio stream not available for this track.");
-      return;
-    }
-
-    if (audioElement) {
-      audioElement.pause();
-      audioElement.currentTime = 0;
-    }
-
-    const newAudio = new Audio(audioUrl);
-    newAudio.volume = isMuted ? 0 : volume;
-    newAudio.muted = isMuted;
-
-    newAudio.play().catch((e) => console.error("Playback failed:", e));
-
-    setAudioElement(newAudio);
-    setCurrentSong(song);
-    setIsPlaying(true);
-
-    const updatedRecent = addRecentSong(song);
-    setRecentTracks(updatedRecent);
-  };
-
   const handlePlaySong = (song: Song) => {
-    if (currentSong?.id === song.id) {
-      if (isPlaying) {
-        audioElement?.pause();
-        setIsPlaying(false);
-      } else {
-        audioElement?.play().catch(console.error);
-        setIsPlaying(true);
-      }
-      return;
-    }
-    playTrack(song);
-  };
-
-  const handleNextSong = () => {
-    const { currentSong: activeSong, isShuffle: shuffle, allPlayableSongs: list } =
-      stateRef.current;
-    if (!list.length || !activeSong) return;
-
-    let nextTrack: Song | undefined;
-    if (shuffle) {
-      const randomIndex = Math.floor(Math.random() * list.length);
-      nextTrack = list[randomIndex];
-    } else {
-      const currentIndex = list.findIndex((s) => String(s.id) === String(activeSong.id));
-      const nextIndex = (currentIndex + 1) % list.length;
-      nextTrack = list[nextIndex];
-    }
-
-    if (nextTrack) playTrack(nextTrack);
-  };
-
-  const handlePreviousSong = () => {
-    const { currentSong: activeSong, allPlayableSongs: list } = stateRef.current;
-    if (!list.length || !activeSong) return;
-
-    if (audioElement && audioElement.currentTime > 3) {
-      audioElement.currentTime = 0;
-      return;
-    }
-
-    const currentIndex = list.findIndex((s) => String(s.id) === String(activeSong.id));
-    const prevIndex = (currentIndex - 1 + list.length) % list.length;
-    const prevTrack = list[prevIndex];
-
-    if (prevTrack) playTrack(prevTrack);
-  };
-
-  const handleTrackEnded = () => {
-    const { loopMode: currentLoop, audioElement: audio } = stateRef.current;
-    if (currentLoop === "one") {
-      if (audio) {
-        audio.currentTime = 0;
-        audio.play().catch(console.error);
-      }
-      return;
-    }
-    handleNextSong();
-  };
-
-  const handleVolumeChange = (newVolume: number) => {
-    const val = Math.max(0, Math.min(1, newVolume));
-    setVolume(val);
-    if (audioElement) audioElement.volume = val;
-    if (val > 0 && isMuted) {
-      setIsMuted(false);
-      if (audioElement) audioElement.muted = false;
-    }
-  };
-
-  const handleToggleMute = () => {
-    const nextMuteState = !isMuted;
-    setIsMuted(nextMuteState);
-    if (audioElement) audioElement.muted = nextMuteState;
-  };
-
-  const handleToggleLoop = () => {
-    setLoopMode((prev) => (prev === "off" ? "all" : prev === "all" ? "one" : "off"));
-  };
-
-  const handleToggleShuffle = () => {
-    setIsShuffle((prev) => !prev);
-  };
-
-  const handleSeek = (timeInSeconds: number) => {
-    if (audioElement) {
-      audioElement.currentTime = timeInSeconds;
-      setCurrentTime(timeInSeconds);
-    }
+    player.playSong(song, allPlayableSongs);
   };
 
   const handleToggleCache = async (e: React.MouseEvent, song: Song) => {
@@ -446,15 +252,6 @@ export default function HomePage() {
     return "/placeholder-music.png";
   };
 
-  const getAudioUrl = (song: any) => {
-    if (Array.isArray(song?.downloadUrl)) {
-      return song.downloadUrl[song.downloadUrl.length - 1]?.url || "";
-    }
-    if (typeof song?.downloadUrl === "string") return song.downloadUrl;
-    if (typeof song?.url === "string") return song.url;
-    return "";
-  };
-
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -478,7 +275,6 @@ export default function HomePage() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
 
       <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
-
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-6">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-md">
@@ -550,7 +346,6 @@ export default function HomePage() {
 
         <section className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
             <div
               onClick={() => router.push("/play-offline")}
               className="flex items-center gap-4 p-3 rounded-2xl bg-gradient-to-r from-surface to-card border border-border-light hover:border-accent/40 shadow-sm cursor-pointer group transition-all"
@@ -619,7 +414,8 @@ export default function HomePage() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {recentTracks.slice(0, 6).map((song, idx) => {
-                const isThisPlaying = String(currentSong?.id) === String(song.id) && isPlaying;
+                const isThisPlaying =
+                  String(player.currentSong?.id) === String(song.id) && player.isPlaying;
                 const isCached = cachedSongIds.has(String(song.id));
                 const isCaching = cachingIds.has(String(song.id));
 
@@ -711,7 +507,8 @@ export default function HomePage() {
 
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {cachedTracks.slice(0, 6).map((song, idx) => {
-                const isThisPlaying = String(currentSong?.id) === String(song.id) && isPlaying;
+                const isThisPlaying =
+                  String(player.currentSong?.id) === String(song.id) && player.isPlaying;
 
                 return (
                   <div
@@ -786,7 +583,8 @@ export default function HomePage() {
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {suggestedTracks.slice(0, 18).map((song, idx) => {
-              const isThisPlaying = String(currentSong?.id) === String(song.id) && isPlaying;
+              const isThisPlaying =
+                String(player.currentSong?.id) === String(song.id) && player.isPlaying;
               const isCached = cachedSongIds.has(String(song.id));
               const isCaching = cachingIds.has(String(song.id));
 
@@ -871,7 +669,6 @@ export default function HomePage() {
                 Your Calibrated Artists
               </h2>
             </div>
-
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -899,47 +696,6 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      {/* Full-Screen Audio Player */}
-      {isPlayerExpanded && currentSong && (
-        <FullscreenPlayer
-          song={currentSong}
-          isPlaying={isPlaying}
-          audioElement={audioElement}
-          currentTime={currentTime}
-          duration={duration}
-          volume={volume}
-          isMuted={isMuted}
-          isShuffle={isShuffle}
-          loopMode={loopMode}
-          onTogglePlay={() => handlePlaySong(currentSong)}
-          onNext={handleNextSong}
-          onPrevious={handlePreviousSong}
-          onSeek={handleSeek}
-          onVolumeChange={handleVolumeChange}
-          onToggleMute={handleToggleMute}
-          onToggleLoop={handleToggleLoop}
-          onToggleShuffle={handleToggleShuffle}
-          onMinimize={() => setIsPlayerExpanded(false)}
-          getImageUrl={getImageUrl}
-        />
-      )}
-
-      {/* Mini Screen Audio Player */}
-      {currentSong && !isPlayerExpanded && (
-        <SmallScreenPlayer
-          currentSong={currentSong}
-          isPlaying={isPlaying}
-          audioElement={audioElement}
-          isMuted={isMuted}
-          onTogglePlay={() => handlePlaySong(currentSong)}
-          onNext={handleNextSong}
-          onPrevious={handlePreviousSong}
-          onToggleMute={handleToggleMute}
-          onExpand={() => setIsPlayerExpanded(true)}
-          getImageUrl={getImageUrl}
-        />
-      )}
     </div>
   );
 }

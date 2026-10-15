@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import type { Metadata } from "next";
 import localFont from "next/font/local";
@@ -6,6 +6,7 @@ import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import ServiceWorkerRegister from "../components/ServiceWorkerRegister";
 import OfflineRedirect from "../components/OfflineRedirect";
+import { PlayerProvider, GlobalPlayer } from "../components/player";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -16,24 +17,23 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
 });
 
-
-
-
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   return (
     <html lang="en">
       <SessionProvider>
-        <body className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}>
-          <ServiceWorkerRegister />
-          <OfflineRedirect />
-
-          {children}
+        <body
+          className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}
+        >
+          <PlayerProvider>
+            <ServiceWorkerRegister />
+            <OfflineRedirect />
+            {children}
+            <GlobalPlayer />
+          </PlayerProvider>
         </body>
       </SessionProvider>
     </html>

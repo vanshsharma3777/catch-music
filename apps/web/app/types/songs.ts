@@ -2,7 +2,7 @@ export interface Song {
   id: string;
   name: string;
   title?: string;
-  singerId: string;
+  singerId?: string;
   type?: string;
   year?: string;
   duration?: number | string;
@@ -17,4 +17,6 @@ export interface Song {
   primaryArtists?: string;
   artists?: { primary?: { name: string }[] };
   artistName?: string;
+  cacheKey?: string;
+  imageCacheKey?: string;
 }
