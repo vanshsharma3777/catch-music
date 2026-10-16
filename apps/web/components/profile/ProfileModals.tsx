@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, Globe, Lock, RefreshCw, Trash2, X } from "lucide-react";
+import { Globe, Lock, RefreshCw, Trash2, X } from "lucide-react";
 import { CoverImage } from "../CoverImage";
 import { api, errMsg, type PlaylistItem, type Profile } from "./shared";
 
