@@ -502,7 +502,7 @@ export default function HomePage() {
               <Headphones size={14} className="text-accent" />
               Artists
             </button>
-            <button onClick={() => router.push("/play-offline")} className={pill}>
+            <button onClick={() => router.push("/offline-play")} className={pill}>
               <HardDriveDownload size={14} className="text-accent" />
               Offline ({cachedTracks.length})
             </button>
@@ -551,7 +551,7 @@ export default function HomePage() {
                 </p>
 
                 <div className="mt-7 flex flex-wrap gap-3">
-                  <button onClick={() => router.push("/play-offline")} className={chip}>
+                  <button onClick={() => router.push("/offline-play")} className={chip}>
                     <span className="grid h-11 w-11 place-items-center rounded-xl bg-accent/20 text-accent transition-transform group-hover:scale-105">
                       <HardDriveDownload size={20} />
                     </span>
@@ -672,7 +672,7 @@ export default function HomePage() {
                   subtitle="Plays instantly, no internet needed"
                   right={
                     <button
-                      onClick={() => router.push("/play-offline")}
+                      onClick={() => router.push("/offline-play")}
                       className="flex cursor-pointer items-center gap-1 text-xs font-semibold text-accent hover:underline"
                     >
                       View all ({cachedTracks.length})
