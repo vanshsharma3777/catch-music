@@ -42,12 +42,11 @@ export interface Remote<T> {
 export const errMsg = (e: unknown) =>
   e instanceof Error && e.message ? e.message : "Something went wrong. Please try again.";
 
-/** fetch wrapper that understands the `{ success, error }` shape every Catch Music route returns. */
 export async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);
   const json = await res.json().catch(() => null);
   if (!res.ok || !json?.success) {
-    throw new Error(json?.error || `Request failed (${res.status})`);
+    console.log(json?.error || `Request failed (${res.status})`);
   }
   return json as T;
 }

@@ -38,11 +38,20 @@ export function pickImage(img: any, pref: "thumb" | "full" = "full"): string {
 const namesOf = (a?: { primary?: { name: string }[] }) =>
   a?.primary?.map((x) => decode(x.name)).join(", ") ?? "";
 
-async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
+async function getJson<T>(
+  url: string,
+  signal?: AbortSignal,
+): Promise<T> {
   const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(`Request failed (${res.status})`);
-  const json = await res.json();
-  if (!json?.success) throw new Error(json?.error || "Request failed");
+
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok || !json?.success) {
+    throw new Error(
+      json?.error || `Request failed (${res.status})`,
+    );
+  }
+
   return json.data as T;
 }
 

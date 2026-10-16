@@ -6,7 +6,6 @@ import { findPlaylist } from "../../../../lib/api/playlists";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** POST /api/playlists/:id/save -- save someone else's public playlist (idempotent). */
 export async function POST(_request: NextRequest, context: Ctx) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
@@ -23,7 +22,6 @@ export async function POST(_request: NextRequest, context: Ctx) {
     }
     if (row.isPublic === false) return fail(403, "Private playlists cannot be saved", "PRIVATE");
 
-    // The unique (user, playlist) index makes concurrent double-saves harmless.
     await db
       .insert(savedPlaylist)
       .values({ userId: user.id, playlistId: row.playlistId })
@@ -35,8 +33,6 @@ export async function POST(_request: NextRequest, context: Ctx) {
     return fail(500, "Failed to save playlist");
   }
 }
-
-/** DELETE /api/playlists/:id/save -- removes ONLY the caller's link; the playlist itself is untouched. */
 export async function DELETE(_request: NextRequest, context: Ctx) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
@@ -46,7 +42,6 @@ export async function DELETE(_request: NextRequest, context: Ctx) {
 
   try {
     const row = await findPlaylist(id);
-    // Works even if the playlist was deleted/hidden in the meantime: just drop the caller's link.
     const playlistId = row?.playlistId ?? id;
 
     await db

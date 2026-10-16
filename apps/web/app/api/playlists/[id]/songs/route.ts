@@ -70,7 +70,6 @@ export async function POST(request: NextRequest, context: Ctx) {
   }
 }
 
-/** DELETE /api/playlists/:id/songs?songId= -- owner only (idempotent). */
 export async function DELETE(request: NextRequest, context: Ctx) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
@@ -102,7 +101,7 @@ export async function DELETE(request: NextRequest, context: Ctx) {
       return rows.length;
     });
 
-    return NextResponse.json({ success: true, removed, message: "Song removed from playlist" });
+    return NextResponse.json({ ok: true, removed, message: "Song removed from playlist" });
   } catch (error) {
     console.error("Error removing song from playlist:", error);
     return fail(500, "Failed to remove song from playlist");

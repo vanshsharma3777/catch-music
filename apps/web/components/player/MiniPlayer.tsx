@@ -137,6 +137,7 @@ export function MiniPlayer() {
 
           {/* Action & Transport Buttons */}
           <div className="flex items-center gap-0.5 sm:gap-1">
+
             <button
               onClick={previousSong}
               aria-label="Previous song"

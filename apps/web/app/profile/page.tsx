@@ -38,6 +38,8 @@ import type { Song } from "../types/songs";
 import {AmbientBackground} from "../../components/AmbientBackground";
 import ModalLayer from "../../components/profile/ModalLayer";
 import { CreatePlaylistModal, EditProfileModal } from "../../components/profile/ProfileModals";
+import SongMenu from "../../components/SongMenu";
+import { markLiked } from "../lib/likedStore";
 
 type Tab = "overview" | "liked" | "saved" | "created";
 
@@ -204,10 +206,12 @@ function SongRow({
   index,
   playing,
   onPlay,
+  menu,
   onUnlike,
 }: {
   song: Song;
   index: number;
+  menu?: React.ReactNode;
   playing: boolean;
   onPlay: () => void;
   onUnlike?: () => void;
@@ -242,6 +246,9 @@ function SongRow({
       <span className="hidden text-xs tabular-nums text-muted sm:block">
         {song.duration ? formatAudioTime(song.duration) : ""}
       </span>
+      <span className="hidden text-xs tabular-nums text-muted sm:block">…</span>
+            {menu}
+
       {onUnlike && (
         <button
           type="button"
@@ -430,6 +437,8 @@ export default function ProfilePage() {
 
   const unlike = async (song: Song) => {
     const id = String(song.id);
+    markLiked(id, false);
+
     setActionError(null);
     setLikes((s) => ({
       ...s,
@@ -522,6 +531,15 @@ export default function ProfilePage() {
               playing={isPlayingSong(song)}
               onPlay={() => playSongs(song, likes.songs)}
               onUnlike={() => void unlike(song)}
+              menu={
+                  <SongMenu
+                    variant="row"
+                    song={song}
+                    onLikeChange={(l) =>
+                      !l && setLikes((s) => ({ ...s, songs: s.songs.filter((x) => String(x.id) !== String(song.id)), total: Math.max(0, s.total - 1) }))
+                    }
+                  />
+                }
             />
           ))}
         </div>
@@ -644,6 +662,17 @@ export default function ProfilePage() {
                     index={i}
                     playing={isPlayingSong(song)}
                     onPlay={() => playSongs(song, pl.songs)}
+                    menu={
+                           <SongMenu
+                             variant="row"
+                             song={song}
+                             onRemoveFromPlaylist={
+                               pl.isOwner
+                                 ? () => removeFromPlaylist(pl.id, song)
+                                 : undefined
+                             }
+                           />
+                         }
                   />
                 ))}
               </div>
@@ -652,6 +681,50 @@ export default function ProfilePage() {
         )}
       </section>
     );
+  };
+
+  const removeFromPlaylist = async (playlistId: string, song: Song) => {
+    setActionError(null);
+
+    try {
+      const result = await api<unknown>(
+        `/api/playlists/${encodeURIComponent(playlistId)}/songs?songId=${encodeURIComponent(
+          String(song.id)
+        )}`,
+        { method: "DELETE" }
+      );
+
+      // Most API helpers return parsed JSON and throw for non-2xx responses.
+      // Keep this check as a safeguard if the helper returns a raw Response.
+      if (result instanceof Response && !result.ok) {
+        throw new Error(`Failed to remove song (${result.status}). Please try again.`);
+      }
+
+      setDetail((current) => {
+        if (!current || current.id !== playlistId || !current.playlist) {
+          return current;
+        }
+
+        return {
+          ...current,
+          error: null,
+          playlist: {
+            ...current.playlist,
+            songs: current.playlist.songs.filter(
+              (item) => String(item.id) !== String(song.id)
+            ),
+          },
+        };
+      });
+
+      setNotice(`Removed "${song.name || song.title || "song"}" from the playlist.`);
+      void loadPlaylists();
+    } catch (error) {
+      console.error("Error removing song from playlist:", error);
+      setActionError(
+        errMsg(error) || "Couldn't remove this song from the playlist. Please try again."
+      );
+    }
   };
 
   const renderOverview = () => (

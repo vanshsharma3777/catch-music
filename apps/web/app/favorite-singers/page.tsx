@@ -10,6 +10,8 @@ import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
 import { checkStorageQuota } from "../lib/estimateStorage";
 import { usePlayer } from "../../components/player";
 import { getSingerSongs } from "../lib/singerSongClient";
+import SongMenu from "../../components/SongMenu";
+import { AmbientBackground } from "../../components/AmbientBackground";
 
 interface SingerSongsMap {
   singer: Singer;
@@ -172,7 +174,7 @@ function FavoriteSingersContent() {
   return (
     <div className="relative min-h-screen bg-bg text-pri px-4 sm:px-8 lg:px-16 py-10 pb-36">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,var(--glow-gold),transparent_60%)] pointer-events-none opacity-20" />
-
+      <AmbientBackground />
       <main className="w-full max-w-7xl mx-auto space-y-12 relative z-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
           <div className="space-y-2">
@@ -298,6 +300,14 @@ function FavoriteSingersContent() {
                               <BookmarkPlus size={14} />
                             )}
                           </button>
+
+                          <SongMenu
+                            song={song}
+                            className="absolute left-2 top-2 z-20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+                            isCached={cachedSongIds.has(String(song.id))}
+                            onToggleCache={(e) => handleToggleCache(e, song)}
+                            cacheDisabled={isCachingAny}
+                          />
 
                           <div className="absolute inset-0 bg-bg/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <div className="h-10 w-10 rounded-full bg-accent text-bg flex items-center justify-center shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">

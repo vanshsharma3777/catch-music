@@ -13,7 +13,6 @@ import {
 
 const MAX_LIST = 200;
 
-/** GET /api/playlists?type=created|saved|all  (default: all) */
 export async function GET(request: NextRequest) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;

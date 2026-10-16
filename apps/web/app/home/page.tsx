@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+  import SongMenu from "../../components/SongMenu";
 import {AmbientBackground} from "../../components/AmbientBackground";
 import {
   Play,
@@ -20,6 +21,7 @@ import {
   ChevronRight,
   Headphones,
   SlidersHorizontal,
+  UserRound,
 } from "lucide-react";
 
 import { usePlayer } from "../../components/player";
@@ -32,6 +34,7 @@ import { CoverImage, getImageUrl } from "../../components/CoverImage";
 import HomeSearch from "../../components/search/HomeSearch";
 import { getSingerSongs } from "../lib/singerSongClient";
 import axios from "axios";
+import Link from "next/link";
 
 function Equalizer() {
   return (
@@ -164,6 +167,15 @@ function SongCard({
             )}
           </button>
 
+
+          <SongMenu
+            song={song}
+            className="absolute left-2 top-2 z-20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100"
+            isCached={isCached}
+            onToggleCache={onToggleCache}
+            cacheDisabled={disableCache}
+          />
+
           <span className="absolute bottom-2 right-2 grid h-11 w-11 translate-y-3 place-items-center rounded-full bg-accent text-bg opacity-0 shadow-xl shadow-black/40 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
             {isPlaying ? (
               <Pause size={19} fill="currentColor" />
@@ -200,7 +212,6 @@ export default function HomePage() {
   const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
   const [isCachingAny, setIsCachingAny] = useState(false);
-  const [remainingStorage, setRemainingStorage] = useState<number | null>(null);
 
   const [searchActive, setSearchActive] = useState(false);
 
@@ -304,9 +315,6 @@ export default function HomePage() {
 
         const recent = getRecentSongs();
         setRecentTracks(recent);
-
-        const quota = await checkStorageQuota();
-        if (quota) setRemainingStorage(quota.remainingMB);
       } catch (err) {
         console.error("Error loading local catalog:", err);
       }
@@ -389,7 +397,6 @@ export default function HomePage() {
       setCachedTracks(refreshedCached);
 
       const status = await checkStorageQuota();
-      if (status) setRemainingStorage(status.remainingMB);
     } catch (err) {
       console.error("Failed to toggle cache:", err);
     } finally {
@@ -477,15 +484,18 @@ export default function HomePage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {remainingStorage !== null && (
-              <div className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 py-1.5 text-xs text-sec backdrop-blur-xl">
-                <HardDriveDownload size={13} className="text-accent" />
-                <span>
-                  <strong className="font-bold text-accent">{remainingStorage.toFixed(1)} MB</strong>{" "}
-                  free
-                </span>
-              </div>
-            )}
+
+            <Link
+              href="/profile"
+              className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 py-1.5 text-xs  backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white"
+            >
+              <UserRound size={14} className="text-accent" />
+
+              <span>
+                <strong className="font-bold">Profile</strong>
+              </span>
+            </Link>
+
             <button onClick={() => router.push("/favorite-singers")} className={pill}>
               <Headphones size={14} className="text-accent" />
               Artists
@@ -652,7 +662,6 @@ export default function HomePage() {
               )}
             </section>
 
-            {/* ---------------- Offline ---------------- */}
             {cachedTracks.length > 0 && (
               <section className="space-y-3">
                 <SectionHeader

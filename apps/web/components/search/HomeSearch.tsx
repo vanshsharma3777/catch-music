@@ -32,6 +32,7 @@ import {
   searchEntities,
   searchSongs,
 } from "../../app/lib/discoverClient";
+import SongMenu from "../SongMenu";
 
 const RECENT_KEY = "catchmusic_recent_searches";
 const PAGE_SIZE = 24;
@@ -192,24 +193,48 @@ function SongRow({
       <span className="hidden text-xs tabular-nums text-muted sm:block">
         {song.duration ? formatAudioTime(song.duration) : ""}
       </span>
-      <button
-        type="button"
-        onClick={onToggleCache}
-        disabled={disableCache}
-        aria-label={isCached ? "Remove from offline" : "Save offline"}
-        title={isCaching ? "Downloading..." : isCached ? "Saved offline" : "Save offline"}
-        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${
-          isCached ? "bg-accent text-bg" : "text-sec hover:bg-white/10 hover:text-pri"
-        }`}
+      <div
+        className="ml-auto flex shrink-0 items-center gap-1"
+        onClick={(e) => e.stopPropagation()}
       >
-        {isCaching ? (
-          <RefreshCw size={14} className="animate-spin" />
-        ) : isCached ? (
-          <BookmarkCheck size={14} />
-        ) : (
-          <BookmarkPlus size={14} />
-        )}
-      </button>
+        <SongMenu
+          song={song}
+          className="relative z-20 opacity-100"
+          isCached={isCached}
+          onToggleCache={(e) => onToggleCache(e)}
+          cacheDisabled={disableCache}
+        />
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleCache(e);
+          }}
+          disabled={disableCache}
+          aria-label={isCached ? "Remove from offline" : "Save offline"}
+          title={
+            isCaching
+              ? "Downloading..."
+              : isCached
+                ? "Saved offline"
+                : "Save offline"
+          }
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${
+            isCached
+              ? "bg-accent text-bg"
+              : "text-sec hover:bg-white/10 hover:text-pri"
+          }`}
+        >
+          {isCaching ? (
+            <RefreshCw size={14} className="animate-spin" />
+          ) : isCached ? (
+            <BookmarkCheck size={14} />
+          ) : (
+            <BookmarkPlus size={14} />
+          )}
+        </button>
+      </div>
     </div>
   );
 }
@@ -331,7 +356,6 @@ export default function HomeSearch({
     onActiveChange(!!submitted || !!detail);
   }, [submitted, detail, onActiveChange]);
 
-  // recent searches
   useEffect(() => {
     try {
       const raw = localStorage.getItem(RECENT_KEY);
@@ -339,7 +363,6 @@ export default function HomeSearch({
     } catch {}
   }, []);
 
-  // press "/" anywhere to jump into the search box
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -369,8 +392,6 @@ export default function HomeSearch({
       localStorage.removeItem(RECENT_KEY);
     } catch {}
   };
-
-  // close dropdown on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
@@ -379,7 +400,6 @@ export default function HomeSearch({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Debounced autocomplete: wait until typing pauses, and abort stale requests.
   useEffect(() => {
     const q = query.trim();
 
@@ -392,7 +412,6 @@ export default function HomeSearch({
       return;
     }
 
-    // Cached suggestions do not need a network request.
     const cached = peekSuggest(q);
     if (cached) {
       abortRef.current?.abort();
@@ -407,7 +426,6 @@ export default function HomeSearch({
     setSuggestLoading(true);
 
     const timer = window.setTimeout(async () => {
-      // The previous effect's cleanup aborts its request as soon as the query changes.
       abortRef.current?.abort();
       abortRef.current = controller;
 
@@ -582,8 +600,6 @@ export default function HomeSearch({
     } else if (e.key === "Escape") {
       setOpen(false);
     }
-    // keep player shortcuts (space, arrows, m, s, r...) from firing while typing:
-    // PlayerContext already ignores events that come from inputs.
   };
 
   const playSongFrom = (song: Song, list: Song[]) => player.playSong(song, list);
@@ -661,8 +677,6 @@ export default function HomeSearch({
   return (
     <>
       <div ref={wrapRef} className="relative z-30 mx-auto w-full max-w-3xl">
-        {/* Frosted dark search pill. On focus: it brightens a little, the icon turns
-            accent and a thin accent line grows along the bottom edge. */}
         <div className="group relative overflow-hidden rounded-full bg-white/[0.06] shadow-[0_18px_50px_-24px_rgba(0,0,0,0.9)] backdrop-blur-2xl transition-colors duration-300 focus-within:bg-white/[0.10] hover:bg-white/[0.08]">
           <Search
             size={20}
@@ -714,7 +728,6 @@ export default function HomeSearch({
             </button>
           </div>
 
-          {/* growing accent line */}
           <span
             aria-hidden
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-center scale-x-0 bg-gradient-to-r from-transparent via-accent to-transparent transition-transform duration-500 ease-out group-focus-within:scale-x-100"

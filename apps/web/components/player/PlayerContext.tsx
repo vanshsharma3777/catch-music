@@ -178,7 +178,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const src = getAudioSource(song);
     if (!src) {
-      console.error("Audio source unavailable for track:", song);
+      console.log("Audio source unavailable for track:", song);
       return;
     }
 
