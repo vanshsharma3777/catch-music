@@ -26,7 +26,6 @@ function FavoriteSingersContent() {
   const [selectedSingers, setSelectedSingers] = useState<Singer[]>([]);
   const [groupedSongs, setGroupedSongs] = useState<SingerSongsMap[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [remainingStorage, setRemainingStorage] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Cache Management State
@@ -40,7 +39,6 @@ function FavoriteSingersContent() {
       try {
         const ids = await getCachedSongIds();
         setCachedSongIds(new Set(ids));
-        await verifyStorageCapacity();
       } catch (err) {
         console.error("Failed to load cached song IDs:", err);
       }
@@ -76,14 +74,6 @@ function FavoriteSingersContent() {
     }
   }, [searchParams]);
 
-  const verifyStorageCapacity = async () => {
-    const status = await checkStorageQuota();
-
-    if (status) {
-      setRemainingStorage(status.remainingMB);
-    }
-  };
-
   const flatPlaylist = useMemo(() => {
     return groupedSongs.flatMap((group) => group.songs);
   }, [groupedSongs]);
@@ -96,15 +86,7 @@ function FavoriteSingersContent() {
     const songId = String(song.id);
     const isCurrentlyCached = cachedSongIds.has(songId);
 
-    if (!isCurrentlyCached) {
-      const status = await checkStorageQuota();
-      if (status && status.isLowStorage) {
-        alert(
-          `Cannot cache track. Device storage is below 3 MB (${status.remainingMB} MB remaining).`
-        );
-        return;
-      }
-    }
+
 
     setIsCachingAny(true);
     setCachingIds((prev) => new Set(prev).add(songId));
@@ -122,7 +104,6 @@ function FavoriteSingersContent() {
         return updated;
       });
 
-      await verifyStorageCapacity();
     } catch (err) {
       console.error("Failed to update track cache status:", err);
     } finally {
@@ -196,14 +177,7 @@ function FavoriteSingersContent() {
               <span>Back to Home</span>
             </button>
 
-            <div className="text-sm text-sec">
-              <span className="font-medium">Available storage:</span>{" "}
-              <span className="text-accent font-bold">
-                {remainingStorage === null
-                  ? "Checking..."
-                  : `${remainingStorage.toFixed(2)} MB`}
-              </span>
-            </div>
+
           </div>
         </div>
 

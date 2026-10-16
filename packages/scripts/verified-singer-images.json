@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Arijit Singh",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/b/b7/Arijit_Singh_performance_at_Chandigarh_2025.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Arijit_Singh"
+  },
+  {
+    "name": "Pritam",
+    "status": "MISSING",
+    "reason": "No image provided by the Wikipedia article",
+    "article": "https://en.wikipedia.org/wiki/Pritam"
+  },
+  {
+    "name": "Shreya Ghoshal",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Shreya_Ghoshal_Behindwoods_Gold_Icons_Awards_2023_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Shreya_Ghoshal"
+  },
+  {
+    "name": "Sonu Nigam",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/7/76/Sonu_Nigam123.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Sonu_Nigam"
+  },
+  {
+    "name": "Neeti Mohan",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/1/13/Neeti_Mohan_attends_Shakti_Mohan%E2%80%99s_Nritya_Shakti_celebrations_for_World_Dance_Day_%2804%29_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Neeti_Mohan"
+  },
+  {
+    "name": "Vishal Mishra",
+    "status": "MISSING",
+    "reason": "No image provided by the Wikipedia article",
+    "article": "https://en.wikipedia.org/wiki/Vishal_Mishra"
+  },
+  {
+    "name": "Jubin Nautiyal",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/9/90/Jubin_Nauityal_at_the_Good_Homes_Awards_2015.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Jubin_Nautiyal"
+  },
+  {
+    "name": "Atif Aslam",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/2/2d/Atif_Aslam_at_Badlapur_%28cropped%29.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Atif_Aslam"
+  },
+  {
+    "name": "Sonu Kakkar",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/e/e2/Sonu_kakkar.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Sonu_Kakkar"
+  },
+  {
+    "name": "Sunidhi Chauhan",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/c/cb/Sunidhi_Chauhan_performing_in_Delhi.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Sunidhi_Chauhan"
+  },
+  {
+    "name": "Mohit Chauhan",
+    "status": "VERIFIED",
+    "image": "https://upload.wikimedia.org/wikipedia/commons/9/95/Mohit_Chauhan_at_the_59th_Idea_Filmfare_Awards.jpg?utm_source=en.wikipedia.org&utm_campaign=api&utm_content=thumbnail_unscaled",
+    "article": "https://en.wikipedia.org/wiki/Mohit_Chauhan"
+  }
+]

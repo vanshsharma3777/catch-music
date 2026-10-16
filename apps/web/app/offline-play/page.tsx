@@ -27,7 +27,6 @@ import SongMenu from "../../components/SongMenu";
 
 const MUSIC_CACHE_NAME = "catchmusic-music-v1";
 
-/** OfflineSong -> Song. cacheKey / imageCacheKey are what the existing player already prefers. */
 const toPlayable = (s: OfflineSong): Song => ({
   id: s.id,
   name: s.name,
@@ -69,7 +68,6 @@ export default function OfflinePlayPage() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
 
-  // Load the manifest, then keep only songs whose audio is really in the cache.
   useEffect(() => {
     let cancelled = false;
 
@@ -86,7 +84,7 @@ export default function OfflinePlayPage() {
 
         valid = manifest.filter((_, i) => checks[i]);
       } catch {
-        // Cache API unavailable: fall back to the manifest as-is.
+
       }
 
       if (!cancelled) {
