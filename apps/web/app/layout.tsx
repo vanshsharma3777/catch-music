@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   title: "CatchMusic",
   description: "Listen to your favorite music anytime, anywhere.",
   icons: {
-    icon: "/CM circular.png",
-    apple: "/CM logo.png",
+    icon: "/cm circular.png",
+    apple: "/cm circular.png",
   },
 };
 
