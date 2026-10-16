@@ -35,6 +35,7 @@ import {
 
 const RECENT_KEY = "catchmusic_recent_searches";
 const PAGE_SIZE = 24;
+const DEBOUNCE_DELAY = 350;
 
 type Tab = "all" | "songs" | "albums" | "artists" | "playlists";
 
@@ -378,42 +379,65 @@ export default function HomeSearch({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Debounced autocomplete: wait until typing pauses, and abort stale requests.
   useEffect(() => {
     const q = query.trim();
+
     if (q.length < 2) {
       abortRef.current?.abort();
+      abortRef.current = null;
       setSuggest(null);
-      setSuggestLoading(false);
-      return;
-    }
-
-    const hit = peekSuggest(q);
-    if (hit) {
-      setSuggest(hit);
       setSuggestLoading(false);
       setActiveIdx(-1);
       return;
     }
 
-    setSuggestLoading(true);
-    const t = setTimeout(async () => {
+    // Cached suggestions do not need a network request.
+    const cached = peekSuggest(q);
+    if (cached) {
       abortRef.current?.abort();
-      const ac = new AbortController();
-      abortRef.current = ac;
+      abortRef.current = null;
+      setSuggest(cached);
+      setSuggestLoading(false);
+      setActiveIdx(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    setSuggestLoading(true);
+
+    const timer = window.setTimeout(async () => {
+      // The previous effect's cleanup aborts its request as soon as the query changes.
+      abortRef.current?.abort();
+      abortRef.current = controller;
+
       try {
-        const r = await fetchSuggest(q, ac.signal);
-        if (!ac.signal.aborted) {
-          setSuggest(r);
+        const result = await fetchSuggest(q, controller.signal);
+        if (!controller.signal.aborted) {
+          setSuggest(result);
           setActiveIdx(-1);
         }
       } catch {
-        if (!ac.signal.aborted) setSuggest(null);
+        if (!controller.signal.aborted) {
+          setSuggest(null);
+        }
       } finally {
-        if (!ac.signal.aborted) setSuggestLoading(false);
+        if (!controller.signal.aborted) {
+          setSuggestLoading(false);
+        }
+        if (abortRef.current === controller) {
+          abortRef.current = null;
+        }
       }
-    }, 220);
+    }, DEBOUNCE_DELAY);
 
-    return () => clearTimeout(t);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+    };
   }, [query]);
 
   const ranked = useMemo(() => {

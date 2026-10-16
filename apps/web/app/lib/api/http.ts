@@ -8,10 +8,6 @@ export function fail(status: number, error: string, code?: string) {
   return NextResponse.json({ success: false, error, ...(code ? { code } : {}) }, { status });
 }
 
-/**
- * Resolves the authenticated user from the session (never from the client payload).
- * Usage: `const auth = await requireUser(); if ("response" in auth) return auth.response;`
- */
 export async function requireUser(): Promise<{ user: CurrentUser } | { response: NextResponse }> {
   try {
     const user = await getCurrentUser();
@@ -23,7 +19,6 @@ export async function requireUser(): Promise<{ user: CurrentUser } | { response:
   }
 }
 
-/** Parses a JSON body. Returns `undefined` for an empty / malformed body instead of throwing. */
 export async function readJson(request: Request): Promise<unknown> {
   try {
     return await request.json();

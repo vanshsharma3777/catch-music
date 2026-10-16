@@ -5,13 +5,16 @@ import { asRecord, fail, isUniqueViolation, readJson, requireUser, type CurrentU
 import { LIMITS, checkImage, checkText, checkUsername } from "../../../lib/api/validation";
 import { isPublicCondition } from "../../../lib/api/playlists";
 
-function publicProfile(u: Pick<CurrentUser, "id" | "name" | "username" | "email" | "image" | "createdAt" | "favoriteSingers">) {
+function publicProfile(
+  u: Pick<CurrentUser, "id" | "name" | "username" | "email" | "image" | "bio" | "createdAt" | "favoriteSingers">
+) {
   return {
     id: u.id,
     name: u.name || "Music Lover",
     username: u.username || "",
     email: u.email,
     image: u.image || "",
+    bio: u.bio || "",
     createdAt: u.createdAt,
     favoriteSingers: u.favoriteSingers ?? [],
   };
@@ -51,7 +54,11 @@ export async function GET() {
   }
 }
 
-/** PUT /api/user/profile  { name?, username?, image? }  -- always edits the *session* user. */
+/**
+ * PUT /api/user/profile  { name?, username?, image?, bio? }
+ * Always edits the *session* user: the target row id comes from the session, never from the request,
+ * so a client cannot edit anyone else's profile. Fields that are not sent are left untouched.
+ */
 export async function PUT(request: NextRequest) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
@@ -60,7 +67,7 @@ export async function PUT(request: NextRequest) {
   const body = asRecord(await readJson(request));
   if (!body) return fail(400, "Invalid request body", "INVALID_BODY");
 
-  const updates: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+  const updates: Partial<typeof users.$inferInsert> = {};
 
   if (body.name !== undefined) {
     const name = checkText(body.name, { label: "Full name", max: LIMITS.userName, required: true });
@@ -87,6 +94,17 @@ export async function PUT(request: NextRequest) {
     if (!image.ok) return fail(400, image.error, "INVALID_IMAGE");
     updates.image = image.value;
   }
+
+  if (body.bio !== undefined) {
+    const bio = checkText(body.bio, { label: "Bio", max: LIMITS.userBio, multiline: true });
+    if (!bio.ok) return fail(400, bio.error, "INVALID_BIO");
+    updates.bio = bio.value || null; // empty clears it
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return fail(400, "No changes to save", "NO_CHANGES");
+  }
+  updates.updatedAt = new Date();
 
   try {
     const updated = await db.update(users).set(updates).where(eq(users.id, user.id)).returning();

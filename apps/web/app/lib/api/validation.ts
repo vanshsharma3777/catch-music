@@ -4,8 +4,8 @@ export const LIMITS = {
   playlistName: 100,
   playlistDescription: 500,
   userName: 100,
+  userBio: 160,
   imageUrl: 2048,
-  /** Max length of an inline `data:image/...` avatar / cover (client resizes before upload). */
   imageDataUrl: 400_000,
   songJsonBytes: 30_000,
   maxPlaylistsPerUser: 500,
@@ -16,7 +16,6 @@ export const LIMITS = {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isUuid = (value: string): boolean => UUID_RE.test(value);
 
-// eslint-disable-next-line no-control-regex
 const CONTROL_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string };

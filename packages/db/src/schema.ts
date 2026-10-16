@@ -27,6 +27,7 @@ export const users = pgTable("user", {
   image: text("image"),
 
   username: text("username").unique(),
+  bio: text("bio"),
   favoriteSingers: jsonb("favorite_singers").$type<{
     id: string;
     name: string;

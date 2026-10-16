@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/likes  { song }  -- idempotent: liking twice never creates a duplicate row. */
 export async function POST(request: NextRequest) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;
@@ -82,7 +81,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** DELETE /api/likes?songId=  (idempotent: unliking a song that isn't liked succeeds). */
 export async function DELETE(request: NextRequest) {
   const auth = await requireUser();
   if ("response" in auth) return auth.response;

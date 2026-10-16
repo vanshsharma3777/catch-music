@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
+import {AmbientBackground} from "../../components/AmbientBackground";
 import {
   Play,
   Pause,
@@ -30,6 +31,7 @@ import { checkStorageQuota } from "../lib/estimateStorage";
 import { CoverImage, getImageUrl } from "../../components/CoverImage";
 import HomeSearch from "../../components/search/HomeSearch";
 import { getSingerSongs } from "../lib/singerSongClient";
+import axios from "axios";
 
 function Equalizer() {
   return (
@@ -252,14 +254,24 @@ export default function HomePage() {
                 if (Array.isArray(parsed) && parsed.length > 0) {
                   singers = parsed;
 
-                  fetch("/api/user/preferences", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ favoriteSingers: parsed }),
-                  }).catch(() => {});
+                  axios
+                    .post("/api/user/preferences", {
+                      favoriteSingers: parsed,
+                    })
+                    .then((res) => {
+                      console.log("Status:", res.status);
+                      console.log("Response:", res.data);
+                    })
+                    .catch((err) => {
+                      console.error("Status:", err.response?.status);
+                      console.error("Response:", err.response?.data);
+                      console.error("Message:", err.message);
+                      console.error("Stack:", err.stack);
+                    });
                 }
               } catch (e) {}
             }
+
           }
 
           if (singers.length === 0) {
@@ -443,53 +455,15 @@ export default function HomePage() {
 
   return (
     <div className="relative isolate min-h-screen overflow-x-hidden bg-bg px-4 py-8 pb-40 text-pri sm:px-8 lg:px-16">
-      <style>{`
-        .no-scrollbar{scrollbar-width:none}
-        .no-scrollbar::-webkit-scrollbar{display:none}
-        @keyframes eq{0%,100%{height:25%}50%{height:100%}}
-        .eq-bar{height:30%;animation:eq 0.9s ease-in-out infinite}
-        @media (prefers-reduced-motion:reduce){.eq-bar{animation:none;height:60%}}
+    <style>{`
+      .no-scrollbar{scrollbar-width:none}
+      .no-scrollbar::-webkit-scrollbar{display:none}
+      @keyframes eq{0%,100%{height:25%}50%{height:100%}}
+      .eq-bar{height:30%;animation:eq 0.9s ease-in-out infinite}
+      @media (prefers-reduced-motion:reduce){.eq-bar{animation:none;height:60%}}
+    `}</style>
 
-        /* ---------- Blurry aurora + soft grid background ---------- */
-        .cm-bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-        .cm-blob{position:absolute;border-radius:9999px;will-change:transform}
-        .cm-blob-a{
-          left:-8rem;top:-10rem;height:36rem;width:36rem;
-          background:color-mix(in srgb,var(--accent) 26%,transparent);
-          filter:blur(130px);animation:cm-drift-a 32s ease-in-out infinite;
-        }
-        .cm-blob-b{
-          right:-10rem;top:28%;height:34rem;width:34rem;
-          background:color-mix(in srgb,var(--primary) 24%,transparent);
-          filter:blur(140px);animation:cm-drift-b 38s ease-in-out infinite;
-        }
-        .cm-blob-c{
-          left:30%;bottom:-14rem;height:30rem;width:30rem;
-          background:color-mix(in srgb,var(--accent) 14%,transparent);
-          filter:blur(130px);animation:cm-drift-a 44s ease-in-out infinite reverse;
-        }
-        @keyframes cm-drift-a{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(70px,50px,0) scale(1.1)}}
-        @keyframes cm-drift-b{0%,100%{transform:translate3d(0,0,0) scale(1)}50%{transform:translate3d(-80px,-40px,0) scale(1.12)}}
-        @media (prefers-reduced-motion:reduce){.cm-blob{animation:none}}
-
-        .cm-grid-soft{
-          position:absolute;inset:0;
-          background-image:
-            linear-gradient(to right,rgba(255,255,255,.045) 1px,transparent 1px),
-            linear-gradient(to bottom,rgba(255,255,255,.045) 1px,transparent 1px);
-          background-size:56px 56px;
-          -webkit-mask-image:radial-gradient(ellipse 85% 75% at 50% 30%,#000 0%,transparent 78%);
-          mask-image:radial-gradient(ellipse 85% 75% at 50% 30%,#000 0%,transparent 78%);
-        }
-      `}</style>
-
-      {/* Background: blurry colour glow + very faint grid */}
-      <div aria-hidden className="cm-bg">
-        <div className="cm-blob cm-blob-a" />
-        <div className="cm-blob cm-blob-b" />
-        <div className="cm-blob cm-blob-c" />
-        <div className="cm-grid-soft" />
-      </div>
+    <AmbientBackground />
 
       <main className="relative z-10 mx-auto w-full max-w-7xl space-y-14">
         <header className="flex flex-wrap items-center justify-between gap-4">
