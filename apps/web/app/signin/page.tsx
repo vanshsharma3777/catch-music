@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Music4, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { signIn, useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 
@@ -32,10 +32,13 @@ export default function LoginPage() {
       <div className="w-full max-w-md hover:scale-105 duration-300 rounded-3xl border border-[var(--border-light)] bg-gradient-to-b from-[var(--surface)] to-[var(--card)] p-8 lg:p-10 shadow-[var(--shadow-lg)] relative z-10 overflow-hidden">
         <div className="absolute  inset-0 bg-gradient-to-tr  from-[var(--glow-warm)] to-transparent opacity-40 pointer-events-none" />
         <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] via-[var(--secondary)] to-[var(--background-secondary)] p-[1px]">
-            <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-[var(--background-secondary)]">
-              <Music4 size={22} className="text-[var(--primary)]" />
-            </div>
+          {/* Brand logo (same treatment as the home page header) */}
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
+            <img
+              src="/cm circular.png"
+              alt="CatchMusic Logo"
+              className="h-full w-full rounded-full object-cover"
+            />
           </div>
 
           <div className="space-y-2">

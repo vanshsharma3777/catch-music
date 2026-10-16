@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   Download,
   HardDrive,
-  Music2,
+  Clock,
   Pause,
   Play,
   Search,
@@ -19,11 +19,12 @@ import {
 import { usePlayer, formatAudioTime } from "../../components/player";
 import { useConnectivity } from "../../components/connectivity/ConnectivityProvider";
 import { CoverImage } from "../../components/CoverImage";
+import { AmbientBackground } from "../../components/AmbientBackground";
+import SongMenu from "../../components/SongMenu";
 
 import { getAllSongs } from "../lib/cacheDb";
 import type { OfflineSong } from "../types/OfflineSong";
 import type { Song } from "../types/songs";
-import SongMenu from "../../components/SongMenu";
 
 const MUSIC_CACHE_NAME = "catchmusic-music-v1";
 
@@ -44,7 +45,7 @@ function Equalizer() {
       {[0, 1, 2, 3].map((i) => (
         <span
           key={i}
-          className="op-eq w-[3px] rounded-full bg-accent"
+          className="eq-bar w-[3px] rounded-full bg-accent"
           style={{ animationDelay: `${i * 0.15}s` }}
         />
       ))}
@@ -55,14 +56,7 @@ function Equalizer() {
 export default function OfflinePlayPage() {
   const router = useRouter();
   const { isOnline, getReturnPath } = useConnectivity();
-
-  const {
-    playSong,
-    currentSong,
-    isPlaying,
-    isShuffle,
-    toggleShuffle,
-  } = usePlayer();
+  const { playSong, currentSong, isPlaying, isShuffle, toggleShuffle } = usePlayer();
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,19 +66,19 @@ export default function OfflinePlayPage() {
     let cancelled = false;
 
     (async () => {
-      const manifest = getAllSongs();
-      let valid = manifest;
+      let valid: OfflineSong[] = [];
+      try {
+        valid = await getAllSongs();
+      } catch {
+        valid = [];
+      }
 
       try {
         const cache = await caches.open(MUSIC_CACHE_NAME);
-
-        const checks = await Promise.all(
-          manifest.map((s) => cache.match(s.cacheKey))
-        );
-
-        valid = manifest.filter((_, i) => checks[i]);
+        const checks = await Promise.all(valid.map((s) => cache.match(s.cacheKey)));
+        valid = valid.filter((_, i) => checks[i]);
       } catch {
-
+        // Cache API unavailable: fall back to the manifest as-is.
       }
 
       if (!cancelled) {
@@ -100,12 +94,8 @@ export default function OfflinePlayPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-
     if (!q) return songs;
-
-    return songs.filter((s) =>
-      `${s.name} ${s.artistName ?? ""}`.toLowerCase().includes(q)
-    );
+    return songs.filter((s) => `${s.name} ${s.artistName ?? ""}`.toLowerCase().includes(q));
   }, [songs, query]);
 
   const totalSeconds = useMemo(
@@ -113,297 +103,219 @@ export default function OfflinePlayPage() {
     [songs]
   );
 
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
   const playAll = () => {
-    if (filtered[0]) {
-      playSong(filtered[0], filtered);
-    }
+    if (filtered[0]) playSong(filtered[0], filtered);
   };
 
   const shuffleAll = () => {
     if (!filtered.length) return;
-
     const pick = filtered[Math.floor(Math.random() * filtered.length)]!;
-
-    if (!isShuffle) {
-      toggleShuffle();
-    }
-
+    if (!isShuffle) toggleShuffle();
     playSong(pick, filtered);
   };
 
   const goBack = () => router.push(getReturnPath());
 
+  const pill =
+    "flex cursor-pointer items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-pri backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95";
+  const stat =
+    "inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-sec backdrop-blur-xl";
+
   return (
-    <div className="relative min-h-dvh overflow-x-hidden bg-bg text-pri">
+    <div className="relative isolate min-h-dvh overflow-x-hidden bg-bg px-4 pb-40 pt-[max(1.25rem,env(safe-area-inset-top))] text-pri sm:px-8 sm:pt-8 lg:px-16">
       <style>{`
-        @keyframes op-eq {
-          0%, 100% { height: 25%; }
-          50% { height: 100%; }
-        }
-
-        .op-eq {
-          height: 30%;
-          animation: op-eq .9s ease-in-out infinite;
-        }
-
-        @keyframes op-float {
-          0%, 100% {
-            transform: translate3d(0,0,0) scale(1);
-          }
-          50% {
-            transform: translate3d(3%,-4%,0) scale(1.1);
-          }
-        }
-
-        .op-blob {
-          animation: op-float 14s ease-in-out infinite;
-        }
-
-        @keyframes op-ring {
-          0% {
-            transform: scale(.8);
-            opacity: .7;
-          }
-          100% {
-            transform: scale(2.2);
-            opacity: 0;
-          }
-        }
-
-        .op-ring {
-          animation: op-ring 2.8s ease-out infinite;
-        }
-
-        @keyframes op-rise {
-          from {
-            opacity: 0;
-            transform: translateY(14px);
-          }
-          to {
-            opacity: 1;
-            transform: none;
-          }
-        }
-
-        .op-rise {
-          animation: op-rise .5s ease-out both;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .op-eq {
-            animation: none;
-            height: 60%;
-          }
-
-          .op-blob,
-          .op-ring,
-          .op-rise {
-            animation: none;
-          }
+        @keyframes eq{0%,100%{height:25%}50%{height:100%}}
+        .eq-bar{height:30%;animation:eq .9s ease-in-out infinite}
+        @keyframes ring{0%{transform:scale(.85);opacity:.6}100%{transform:scale(2);opacity:0}}
+        .sig-ring{animation:ring 2.8s ease-out infinite}
+        @media (prefers-reduced-motion:reduce){
+          .eq-bar{animation:none;height:60%}
+          .sig-ring{animation:none;opacity:0}
         }
       `}</style>
 
-      {/* Ambient background */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 overflow-hidden"
-      >
-        <div className="op-blob absolute -left-24 -top-24 h-80 w-80 rounded-full bg-primary/20 blur-[100px] sm:h-[28rem] sm:w-[28rem]" />
+      <AmbientBackground />
 
-        <div
-          className="op-blob absolute -right-24 top-1/3 h-72 w-72 rounded-full bg-secondary/20 blur-[100px] sm:h-96 sm:w-96"
-          style={{ animationDelay: "-6s" }}
-        />
-
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,transparent,var(--background)_75%)]" />
-      </div>
-
-      {/* Top bar */}
-      <header className="sticky top-0 z-30 border-b border-border-light bg-bg/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6">
-          {isOnline ? (
-            <button
-              onClick={goBack}
-              className="op-rise group inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-bold text-black shadow-primary transition hover:bg-primary-hover active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-              Back to app
-            </button>
-          ) : (
-            <span className="inline-flex items-center gap-2 text-sm font-extrabold tracking-tight">
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/30">
-                <Music2 className="h-4 w-4" />
-              </span>
-              Catch Music
+      <main className="relative z-10 mx-auto w-full max-w-7xl space-y-8 sm:space-y-10">
+        {/* Header: same brand block as home */}
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)] sm:h-11 sm:w-11">
+              <img
+                src="/cm circular.png"
+                alt="CatchMusic Logo"
+                className="h-full w-full rounded-[15px] object-cover"
+              />
+            </div>
+            <span className="truncate text-2xl font-extrabold tracking-tight sm:text-3xl">
+              CatchMusic
             </span>
-          )}
+          </div>
 
-          <span
-            className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition-colors ${
-              isOnline
-                ? "bg-emerald-400/10 text-emerald-300 ring-emerald-400/30"
-                : "bg-amber-400/10 text-amber-300 ring-amber-400/30"
-            }`}
-          >
-            {isOnline ? (
-              <Wifi className="h-3.5 w-3.5" />
-            ) : (
-              <WifiOff className="h-3.5 w-3.5" />
+          <div className="flex shrink-0 items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold backdrop-blur-xl ${
+                isOnline ? "bg-emerald-400/10 text-emerald-300" : "bg-amber-400/10 text-amber-300"
+              }`}
+            >
+              {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+              <span className="hidden min-[380px]:inline">{isOnline ? "Online" : "Offline"}</span>
+            </span>
+
+            {isOnline && (
+              <button onClick={goBack} className={pill} aria-label="Back to app">
+                <ArrowLeft size={14} className="text-accent" />
+                <span className="hidden sm:inline">Back to app</span>
+              </button>
             )}
+          </div>
+        </header>
 
-            {isOnline ? "Online" : "Offline mode"}
-          </span>
-        </div>
-      </header>
-
-      <main className="relative mx-auto max-w-5xl px-4 pb-40 pt-8 sm:px-6 sm:pt-12">
         {/* Hero */}
-        <section className="op-rise flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:gap-8 sm:text-left">
-          <div className="relative grid h-24 w-24 shrink-0 place-items-center sm:h-32 sm:w-32">
+        <section className="flex items-center gap-4 sm:gap-6">
+          <div className="relative grid h-16 w-16 shrink-0 place-items-center sm:h-24 sm:w-24">
             {!isOnline && (
               <>
-                <span className="op-ring absolute inset-0 rounded-full ring-2 ring-primary/40" />
-
+                <span className="sig-ring absolute inset-0 rounded-full ring-2 ring-accent/40" />
                 <span
-                  className="op-ring absolute inset-0 rounded-full ring-2 ring-primary/30"
+                  className="sig-ring absolute inset-0 rounded-full ring-2 ring-accent/30"
                   style={{ animationDelay: "1.4s" }}
                 />
               </>
             )}
-
-            <div className="relative grid h-full w-full place-items-center rounded-full bg-gradient-to-br from-primary to-secondary text-black shadow-primary">
+            <div className="relative grid h-full w-full place-items-center rounded-full bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] text-bg shadow-[0_8px_30px_-8px_var(--accent)]">
               {isOnline ? (
-                <Wifi
-                  className="h-10 w-10 sm:h-14 sm:w-14"
-                  strokeWidth={1.75}
-                />
+                <Wifi className="h-7 w-7 sm:h-10 sm:w-10" strokeWidth={1.75} />
               ) : (
-                <WifiOff
-                  className="h-10 w-10 sm:h-14 sm:w-14"
-                  strokeWidth={1.75}
-                />
+                <WifiOff className="h-7 w-7 sm:h-10 sm:w-10" strokeWidth={1.75} />
               )}
             </div>
           </div>
 
           <div className="min-w-0">
-            <h1 className="text-balance text-3xl font-extrabold leading-tight tracking-tight sm:text-5xl">
+            <p className="text-sm font-medium text-sec">
+              {isOnline ? "You're back online" : "You're offline"}
+            </p>
+            <h1 className="mt-1 text-balance text-3xl font-black leading-[1.05] tracking-tight sm:text-6xl">
               {isOnline ? (
-                <>
-                  Connection <span className="text-primary">restored</span>
-                </>
+                <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] bg-clip-text text-transparent">
+                  Connection restored
+                </span>
               ) : (
                 <>
-                  No signal. <span className="text-primary">Still vibing.</span>
+                  <span className="bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] bg-clip-text text-transparent">
+                    No signal.
+                  </span>{" "}
+                  Still vibing.
                 </>
               )}
             </h1>
-
-            <p className="mt-2 max-w-xl text-sm text-sec sm:text-base">
-              {isOnline
-                ? "You're back online. Keep listening to your downloads here, or head back to the full app."
-                : "Your downloaded songs play straight from your device — no internet needed."}
-            </p>
-
-            <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-medium text-sec ring-1 ring-border-light">
-                <HardDrive className="h-3.5 w-3.5 text-primary" />
-                {songs.length} {songs.length === 1 ? "song" : "songs"} saved
-              </span>
-
-              {totalSeconds > 0 && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-card px-3 py-1.5 text-xs font-medium text-sec ring-1 ring-border-light">
-                  {Math.floor(totalSeconds / 3600) > 0
-                    ? `${Math.floor(totalSeconds / 3600)} hr `
-                    : ""}
-                  {Math.floor((totalSeconds % 3600) / 60)} min of music
-                </span>
-              )}
-            </div>
           </div>
         </section>
 
+        <div className="-mt-3 space-y-4 sm:-mt-4">
+          <p className="max-w-md text-sm text-sec">
+            {isOnline
+              ? "Keep listening to your downloads here, or go back to the full app."
+              : "Your downloaded songs play straight from this device. No internet needed."}
+          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <span className={stat}>
+              <HardDrive size={14} className="text-accent" />
+              {songs.length} {songs.length === 1 ? "song" : "songs"} saved
+            </span>
+            {totalSeconds > 0 && (
+              <span className={stat}>
+                <Clock size={14} className="text-accent" />
+                {hours > 0 ? `${hours} hr ` : ""}
+                {minutes} min
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* Controls */}
         {songs.length > 0 && (
-          <section
-            className="op-rise mt-8 flex flex-col gap-3 sm:flex-row sm:items-center"
-            style={{ animationDelay: "80ms" }}
-          >
-            <div className="flex gap-3">
+          <section className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="grid grid-cols-2 gap-3 sm:flex">
               <button
                 onClick={playAll}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-bold text-black shadow-primary transition hover:bg-primary-hover active:scale-95 sm:flex-none"
+                disabled={!filtered.length}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-accent px-6 text-sm font-bold text-bg shadow-[0_8px_30px_-10px_var(--accent)] transition hover:brightness-110 active:scale-95 disabled:opacity-50"
               >
-                <Play className="h-4 w-4 fill-current" />
+                <Play size={16} fill="currentColor" />
                 Play all
               </button>
 
               <button
                 onClick={shuffleAll}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-full bg-card px-6 py-3 text-sm font-bold text-pri ring-1 ring-border-light transition hover:bg-card-hover active:scale-95 sm:flex-none"
+                disabled={!filtered.length}
+                className={`inline-flex h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-bold backdrop-blur-xl transition active:scale-95 disabled:opacity-50 ${
+                  isShuffle
+                    ? "bg-accent/20 text-accent"
+                    : "bg-white/[0.06] text-pri hover:bg-white/[0.12]"
+                }`}
               >
-                <Shuffle className="h-4 w-4 text-primary" />
+                <Shuffle size={16} className={isShuffle ? "" : "text-accent"} />
                 Shuffle
               </button>
             </div>
 
-            <label className="relative sm:ml-auto sm:w-72">
+            <label className="relative sm:ml-auto sm:w-80">
               <span className="sr-only">Search downloaded songs</span>
-
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+              />
               <input
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search downloads"
-                className="w-full rounded-full border border-input-border bg-input py-3 pl-10 pr-10 text-sm text-pri placeholder:text-muted focus:border-input-focus focus:outline-none"
+                className="h-12 w-full rounded-full border border-input-border bg-input pl-11 pr-11 text-base text-pri backdrop-blur-xl placeholder:text-muted focus:border-input-focus focus:outline-none sm:text-sm"
               />
-
               {query && (
                 <button
                   onClick={() => setQuery("")}
                   aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-muted hover:text-pri"
+                  className="absolute right-1.5 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full text-muted transition hover:text-pri"
                 >
-                  <X className="h-4 w-4" />
+                  <X size={16} />
                 </button>
               )}
             </label>
           </section>
         )}
 
-        {/* Downloaded songs */}
-        <section className="mt-6" aria-label="Downloaded songs">
+        {/* Songs */}
+        <section aria-label="Downloaded songs">
           {loading ? (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <li
-                  key={i}
-                  className="h-[72px] animate-pulse rounded-2xl bg-card"
-                />
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <li key={i} className="h-[76px] animate-pulse rounded-3xl bg-white/[0.04]" />
               ))}
             </ul>
           ) : songs.length === 0 ? (
-            <div className="op-rise mx-auto mt-6 max-w-md rounded-3xl border border-border-light bg-card/70 p-8 text-center backdrop-blur">
-              <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/30">
-                <Download className="h-7 w-7" />
+            <div className="mx-auto max-w-md space-y-3 rounded-3xl bg-white/[0.04] p-8 text-center backdrop-blur-xl sm:p-10">
+              <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-accent/15 text-accent">
+                <Download size={26} />
               </span>
-
-              <h2 className="mt-4 text-xl font-extrabold">
-                Nothing downloaded yet
-              </h2>
-
-              <p className="mt-1.5 text-sm text-sec">
-                Save songs while you&apos;re online using the download button,
-                and they&apos;ll show up here for offline play.
+              <h2 className="text-lg font-extrabold">Nothing downloaded yet</h2>
+              <p className="text-sm text-sec">
+                Tap the bookmark on any song while you&apos;re online. Saved songs show up here.
               </p>
-
               {isOnline && (
                 <button
                   onClick={goBack}
-                  className="mt-5 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-black transition hover:bg-primary-hover active:scale-95"
+                  className="mt-2 inline-flex h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-bold text-bg transition hover:brightness-110 active:scale-95"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft size={16} />
                   Back to app
                 </button>
               )}
@@ -413,79 +325,56 @@ export default function OfflinePlayPage() {
               No downloads match &ldquo;{query}&rdquo;.
             </p>
           ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {filtered.map((song, i) => {
-                const active =
-                  currentSong && String(currentSong.id) === String(song.id);
-
+            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((song) => {
+                const active = !!currentSong && String(currentSong.id) === String(song.id);
                 const playingNow = active && isPlaying;
 
                 return (
-                  <li
-                    key={song.id}
-                    className="op-rise relative"
-                    style={{
-                      animationDelay: `${Math.min(i, 12) * 40}ms`,
-                    }}
-                  >
-                    {/* Song card: keep the menu outside this button */}
+                  <li key={song.id} className="relative">
+                    {/* SongMenu stays outside the button to avoid nested interactives */}
                     <button
                       onClick={() => playSong(song, filtered)}
                       aria-label={`${playingNow ? "Pause" : "Play"} ${song.name}`}
-                      className={`group flex w-full items-center gap-3 rounded-2xl p-2.5 pr-12 text-left ring-1 transition active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-primary ${
-                        active
-                          ? "bg-primary/10 ring-primary/40"
-                          : "bg-card ring-border-light hover:bg-card-hover hover:ring-border-glow"
+                      className={`group flex min-h-[76px] w-full items-center gap-3 rounded-3xl p-2.5 pr-14 text-left backdrop-blur-xl transition duration-300 active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-accent sm:hover:-translate-y-0.5 ${
+                        active ? "bg-white/[0.09]" : "bg-white/[0.05] hover:bg-white/[0.09]"
                       }`}
                     >
-                      <span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-xl">
+                      <span className="relative block h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-[0_10px_24px_-12px_rgba(0,0,0,0.8)]">
                         <CoverImage
                           src={
                             song.imageCacheKey ||
                             (typeof song.image === "string" ? song.image : "")
                           }
                           name={song.name}
-                          className="h-full w-full"
+                          className="h-full w-full transition-transform duration-500 group-hover:scale-105"
                         />
-
                         <span
                           className={`absolute inset-0 grid place-items-center bg-black/50 transition ${
-                            active
-                              ? "opacity-100"
-                              : "opacity-0 group-hover:opacity-100"
+                            active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
                           }`}
                         >
                           {playingNow ? (
-                            <Pause className="h-5 w-5 fill-white text-white" />
+                            <Pause size={18} fill="white" className="text-white" />
                           ) : (
-                            <Play className="h-5 w-5 fill-white text-white" />
+                            <Play size={18} fill="white" className="ml-0.5 text-white" />
                           )}
                         </span>
                       </span>
 
                       <span className="min-w-0 flex-1">
                         <span
-                          className={`block truncate text-sm font-semibold ${
-                            active ? "text-primary" : "text-pri"
+                          className={`block truncate text-sm font-bold ${
+                            active ? "text-accent" : "text-pri"
                           }`}
                         >
                           {song.name}
                         </span>
-
-                        <span className="block truncate text-xs text-sec">
+                        <span className="mt-0.5 block truncate text-xs text-muted">
                           {song.artistName || "Unknown Artist"}
                         </span>
                       </span>
 
-                      <span className="flex shrink-0 items-center gap-3 pr-1.5">
-                        {playingNow && <Equalizer />}
-
-                        {song.duration ? (
-                          <span className="text-xs tabular-nums text-muted">
-                            {formatAudioTime(song.duration)}
-                          </span>
-                        ) : null}
-                      </span>
                     </button>
 
                     <SongMenu
@@ -494,9 +383,7 @@ export default function OfflinePlayPage() {
                       className="absolute right-2 top-1/2 z-10 -translate-y-1/2"
                     />
                   </li>
-
                 );
-
               })}
             </ul>
           )}
