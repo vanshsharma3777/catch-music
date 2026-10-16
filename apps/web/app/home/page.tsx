@@ -475,12 +475,14 @@ export default function HomePage() {
       <main className="relative z-10 mx-auto w-full max-w-7xl space-y-14">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
-              <div className="flex h-full w-full items-center justify-center rounded-[15px] bg-surface">
-                <Music4 size={20} className="text-accent" />
-              </div>
+            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
+              <img
+                src="/cm circular.png"
+                alt="CatchMusic Logo"
+                className="h-full w-full object-cover rounded-[15px]"
+              />
             </div>
-            <span className="text-lg font-extrabold tracking-tight">CatchMusic</span>
+            <span className="text-3xl font-extrabold tracking-tight">CatchMusic</span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

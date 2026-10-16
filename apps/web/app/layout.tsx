@@ -1,12 +1,7 @@
-"use client";
-
-import type { Metadata } from "next";
 import localFont from "next/font/local";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import ServiceWorkerRegister from "../components/ServiceWorkerRegister";
-import { PlayerProvider, GlobalPlayer } from "../components/player";
-import ConnectivityProvider from "../components/connectivity/ConnectivityProvider";
+import Providers from "./Providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -17,6 +12,20 @@ const geistMono = localFont({
   variable: "--font-geist-mono",
 });
 
+export const metadata: Metadata = {
+  title: "CatchMusic",
+  description: "Listen to your favorite music anytime, anywhere.",
+  icons: {
+    icon: "/CM circular.png",
+    apple: "/CM logo.png",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,19 +33,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <SessionProvider>
-        <body
-          className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}
-        >
-          <PlayerProvider>
-            <ConnectivityProvider>
-              <ServiceWorkerRegister />
-              {children}
-              <GlobalPlayer />
-            </ConnectivityProvider>
-          </PlayerProvider>
-        </body>
-      </SessionProvider>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}
+      >
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

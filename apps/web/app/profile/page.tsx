@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -35,11 +35,12 @@ import {
   type Remote,
 } from "../../components/profile/shared";
 import type { Song } from "../types/songs";
-import {AmbientBackground} from "../../components/AmbientBackground";
+import { AmbientBackground } from "../../components/AmbientBackground";
 import ModalLayer from "../../components/profile/ModalLayer";
 import { CreatePlaylistModal, EditProfileModal } from "../../components/profile/ProfileModals";
 import SongMenu from "../../components/SongMenu";
 import { markLiked } from "../lib/likedStore";
+import Toaster, { useToaster } from "../../components/connectivity/Toaster";
 
 type Tab = "overview" | "liked" | "saved" | "created";
 
@@ -65,12 +66,12 @@ interface DetailState {
   error: string | null;
   playlist: PlaylistWithSongs | null;
 }
-function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
+
+function ErrorBox({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="alert" className="rounded-3xl bg-white/[0.04] p-8 text-center backdrop-blur-xl">
-      <AlertTriangle size={30} className="mx-auto text-error" />
+    <div className="rounded-3xl bg-white/[0.04] p-8 text-center backdrop-blur-xl">
+      <AlertTriangle size={28} className="mx-auto text-error" />
       <h3 className="mt-3 text-sm font-bold text-pri">Couldn&apos;t load this</h3>
-      <p className="mx-auto mt-1 max-w-sm text-xs text-sec">{message}</p>
       <button
         type="button"
         onClick={onRetry}
@@ -247,7 +248,7 @@ function SongRow({
         {song.duration ? formatAudioTime(song.duration) : ""}
       </span>
       <span className="hidden text-xs tabular-nums text-muted sm:block">…</span>
-            {menu}
+      {menu}
 
       {onUnlike && (
         <button
@@ -313,8 +314,27 @@ export default function ProfilePage() {
   const router = useRouter();
   const { status, update: refreshSession } = useSession();
   const player = usePlayer();
+  const { toasts, push, dismiss } = useToaster();
 
-  const [notice, setNotice] = useState<string | null>(null);
+  const toastSuccess = useCallback(
+    (title: string, message?: string) => push({ variant: "success", title, message }),
+    [push]
+  );
+  const toastInfo = useCallback(
+    (title: string, message?: string) => push({ variant: "info", title, message }),
+    [push]
+  );
+  const toastError = useCallback(
+    (title: string, message?: string, retry?: () => void) =>
+      push({
+        variant: "error",
+        title,
+        message,
+        action: retry ? { label: "Try again", onClick: retry } : undefined,
+      }),
+    [push]
+  );
+
   const [tab, setTab] = useState<Tab>("overview");
   const [profile, setProfile] = useState<Remote<Profile | null>>({ data: null, loading: true, error: null });
   const [likes, setLikes] = useState<LikesState>({
@@ -329,7 +349,9 @@ export default function ProfilePage() {
   const [detail, setDetail] = useState<DetailState | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [actionError, setActionError] = useState<string | null>(null);
+
+  const protectedIds = useRef<Set<string>>(new Set());
+  const attemptedDeletes = useRef<Set<string>>(new Set());
 
   const loadProfile = useCallback(async () => {
     setProfile((s) => ({ ...s, loading: true, error: null }));
@@ -337,57 +359,59 @@ export default function ProfilePage() {
       const res = await api<{ user: Profile }>("/api/user/profile");
       setProfile({ data: res.user, loading: false, error: null });
     } catch (e) {
-      setProfile((s) => ({ ...s, loading: false, error: errMsg(e) }));
+      const msg = errMsg(e);
+      setProfile((s) => ({ ...s, loading: false, error: msg }));
+      toastError("Couldn't load your profile", msg, () => void loadProfile());
     }
-  }, []);
+  }, [toastError]);
 
-  const loadLikes = useCallback(async (offset = 0) => {
-    setLikes((s) =>
-      offset
-        ? { ...s, loadingMore: true, error: null }
-        : { ...s, loading: true, error: null }
-    );
+  const loadLikes = useCallback(
+    async (offset = 0) => {
+      setLikes((s) =>
+        offset
+          ? { ...s, loadingMore: true, error: null }
+          : { ...s, loading: true, error: null }
+      );
 
-    try {
-      const d = await api<{
-        likedSongs: Song[];
-        total: number;
-        hasMore: boolean;
-      }>(`/api/likes?limit=100&offset=${offset}`);
+      try {
+        const d = await api<{
+          likedSongs: Song[];
+          total: number;
+          hasMore: boolean;
+        }>(`/api/likes?limit=100&offset=${offset}`);
 
-      console.log("Likes API Response:", d);
-      console.log("Liked Songs:", d.likedSongs);
-      console.log("Total Likes:", d.total);
-      console.log("Has More:", d.hasMore);
+        setLikes((s) => {
+          const known = new Set(s.songs.map((x) => String(x.id)));
 
-      setLikes((s) => {
-        const known = new Set(s.songs.map((x) => String(x.id)));
+          return {
+            songs: offset
+              ? [
+                  ...s.songs,
+                  ...d.likedSongs.filter((n) => !known.has(String(n.id))),
+                ]
+              : d.likedSongs,
+            total: d.total,
+            hasMore: d.hasMore,
+            loading: false,
+            loadingMore: false,
+            error: null,
+          };
+        });
+      } catch (e) {
+        console.error("Load Likes Error:", e);
+        const msg = errMsg(e);
 
-        return {
-          songs: offset
-            ? [
-                ...s.songs,
-                ...d.likedSongs.filter((n) => !known.has(String(n.id))),
-              ]
-            : d.likedSongs,
-          total: d.total,
-          hasMore: d.hasMore,
+        setLikes((s) => ({
+          ...s,
           loading: false,
           loadingMore: false,
-          error: null,
-        };
-      });
-    } catch (e) {
-      console.error("Load Likes Error:", e);
-
-      setLikes((s) => ({
-        ...s,
-        loading: false,
-        loadingMore: false,
-        error: errMsg(e),
-      }));
-    }
-  }, []);
+          error: msg,
+        }));
+        toastError("Couldn't load liked songs", msg, () => void loadLikes(offset));
+      }
+    },
+    [toastError]
+  );
 
   const loadPlaylists = useCallback(async () => {
     setLists((s) => ({ ...s, loading: true, error: null }));
@@ -397,8 +421,15 @@ export default function ProfilePage() {
       );
       setLists({ created: d.createdPlaylists, saved: d.savedPlaylists, loading: false, error: null });
     } catch (e) {
-      setLists((s) => ({ ...s, loading: false, error: errMsg(e) }));
+      const msg = errMsg(e);
+      setLists((s) => ({ ...s, loading: false, error: msg }));
+      toastError("Couldn't load playlists", msg, () => void loadPlaylists());
     }
+  }, [toastError]);
+
+  const deletePlaylistSilently = useCallback(async (id: string) => {
+    await api(`/api/playlists/${encodeURIComponent(id)}`, { method: "DELETE" });
+    setLists((s) => ({ ...s, created: s.created.filter((p) => p.id !== id) }));
   }, []);
 
   useEffect(() => {
@@ -414,14 +445,40 @@ export default function ProfilePage() {
   }, [status, router, loadProfile, loadLikes, loadPlaylists]);
 
   useEffect(() => {
-    if (!notice) return;
-    const t = setTimeout(() => setNotice(null), 4000);
-    return () => clearTimeout(t);
-  }, [notice]);
+    if (lists.loading || lists.error) return;
+
+    const empty = lists.created.filter(
+      (p) =>
+        p.songCount === 0 &&
+        !protectedIds.current.has(p.id) &&
+        !attemptedDeletes.current.has(p.id)
+    );
+    if (empty.length === 0) return;
+
+    empty.forEach((p) => attemptedDeletes.current.add(p.id));
+
+    void (async () => {
+      let removed = 0;
+      for (const p of empty) {
+        try {
+          await deletePlaylistSilently(p.id);
+          removed += 1;
+        } catch (e) {
+          console.error("Auto-delete failed:", e);
+        }
+      }
+      if (removed > 0) {
+        toastInfo(
+          "Cleaned up",
+          `Removed ${removed} empty playlist${removed > 1 ? "s" : ""}.`
+        );
+      }
+    })();
+  }, [lists.loading, lists.error, lists.created, deletePlaylistSilently, toastInfo]);
 
   const onProfileSaved = (updated: Profile) => {
     setProfile({ data: updated, loading: false, error: null });
-    setNotice("Profile updated successfully.");
+    toastSuccess("Profile updated", "Your changes have been saved.");
     void refreshSession().catch(() => {});
   };
 
@@ -431,7 +488,9 @@ export default function ProfilePage() {
       const res = await api<{ playlist: PlaylistWithSongs }>(`/api/playlists/${encodeURIComponent(p.id)}`);
       setDetail({ id: p.id, loading: false, error: null, playlist: res.playlist });
     } catch (e) {
-      setDetail({ id: p.id, loading: false, error: errMsg(e), playlist: null });
+      const msg = errMsg(e);
+      setDetail({ id: p.id, loading: false, error: msg, playlist: null });
+      toastError("Couldn't open playlist", msg, () => void openPlaylist(p));
     }
   };
 
@@ -439,7 +498,6 @@ export default function ProfilePage() {
     const id = String(song.id);
     markLiked(id, false);
 
-    setActionError(null);
     setLikes((s) => ({
       ...s,
       songs: s.songs.filter((x) => String(x.id) !== id),
@@ -448,31 +506,29 @@ export default function ProfilePage() {
     try {
       await api(`/api/likes?songId=${encodeURIComponent(id)}`, { method: "DELETE" });
     } catch (e) {
-      setActionError(errMsg(e));
+      toastError("Couldn't remove from liked songs", errMsg(e));
       void loadLikes();
     }
   };
 
   const removeSaved = async (id: string) => {
-    setActionError(null);
     try {
       await api(`/api/playlists/${encodeURIComponent(id)}/save`, { method: "DELETE" });
       setLists((s) => ({ ...s, saved: s.saved.filter((p) => p.id !== id) }));
       setDetail(null);
     } catch (e) {
-      setActionError(errMsg(e));
+      toastError("Couldn't remove saved playlist", errMsg(e));
     }
   };
 
   const deleteCreated = async (id: string) => {
     if (!window.confirm("Delete this playlist? This cannot be undone.")) return;
-    setActionError(null);
     try {
       await api(`/api/playlists/${encodeURIComponent(id)}`, { method: "DELETE" });
       setLists((s) => ({ ...s, created: s.created.filter((p) => p.id !== id) }));
       setDetail(null);
     } catch (e) {
-      setActionError(errMsg(e));
+      toastError("Couldn't delete playlist", errMsg(e));
     }
   };
 
@@ -484,7 +540,6 @@ export default function ProfilePage() {
   const playSongs = (song: Song, list: Song[]) => player.playSong(song, list);
   const isPlayingSong = (s: Song) => String(player.currentSong?.id) === String(s.id) && player.isPlaying;
 
-  /* ---------- auth / profile gates ---------- */
   if (status === "loading" || status === "unauthenticated") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center space-y-4 bg-bg text-pri">
@@ -508,7 +563,7 @@ export default function ProfilePage() {
 
   const renderLiked = (limit?: number) => {
     if (likes.loading) return <RowSkeleton n={limit ?? 6} />;
-    if (likes.error) return <ErrorBox message={likes.error} onRetry={() => void loadLikes()} />;
+    if (likes.error && likes.songs.length === 0) return <ErrorBox onRetry={() => void loadLikes()} />;
     if (likes.songs.length === 0) {
       return (
         <EmptyState
@@ -532,14 +587,19 @@ export default function ProfilePage() {
               onPlay={() => playSongs(song, likes.songs)}
               onUnlike={() => void unlike(song)}
               menu={
-                  <SongMenu
-                    variant="row"
-                    song={song}
-                    onLikeChange={(l) =>
-                      !l && setLikes((s) => ({ ...s, songs: s.songs.filter((x) => String(x.id) !== String(song.id)), total: Math.max(0, s.total - 1) }))
-                    }
-                  />
-                }
+                <SongMenu
+                  variant="row"
+                  song={song}
+                  onLikeChange={(l) =>
+                    !l &&
+                    setLikes((s) => ({
+                      ...s,
+                      songs: s.songs.filter((x) => String(x.id) !== String(song.id)),
+                      total: Math.max(0, s.total - 1),
+                    }))
+                  }
+                />
+              }
             />
           ))}
         </div>
@@ -562,7 +622,7 @@ export default function ProfilePage() {
 
   const renderPlaylists = (kind: "saved" | "created", limit?: number) => {
     if (lists.loading) return <GridSkeleton n={limit ?? 4} />;
-    if (lists.error) return <ErrorBox message={lists.error} onRetry={() => void loadPlaylists()} />;
+    if (lists.error) return <ErrorBox onRetry={() => void loadPlaylists()} />;
     const items = kind === "saved" ? lists.saved : lists.created;
     if (items.length === 0) {
       return kind === "saved" ? (
@@ -583,6 +643,51 @@ export default function ProfilePage() {
     return <PlaylistGrid items={items} limit={limit} onOpen={(pl) => void openPlaylist(pl)} />;
   };
 
+  const removeFromPlaylist = async (playlistId: string, song: Song) => {
+    try {
+      const result = await api<unknown>(
+        `/api/playlists/${encodeURIComponent(playlistId)}/songs?songId=${encodeURIComponent(
+          String(song.id)
+        )}`,
+        { method: "DELETE" }
+      );
+      if (result instanceof Response && !result.ok) {
+        throw new Error(`Failed to remove song (${result.status}). Please try again.`);
+      }
+
+      const remaining =
+        detail?.id === playlistId && detail.playlist
+          ? detail.playlist.songs.filter((item) => String(item.id) !== String(song.id))
+          : [];
+
+      if (remaining.length === 0) {
+        attemptedDeletes.current.add(playlistId);
+        await deletePlaylistSilently(playlistId);
+        setDetail(null);
+        toastInfo("Playlist deleted", "That was the last song, so the empty playlist was deleted.");
+        return;
+      }
+
+      setDetail((current) => {
+        if (!current || current.id !== playlistId || !current.playlist) return current;
+        return {
+          ...current,
+          error: null,
+          playlist: { ...current.playlist, songs: remaining },
+        };
+      });
+
+      toastSuccess("Song removed", `"${song.name || song.title || "Song"}" was removed from the playlist.`);
+      void loadPlaylists();
+    } catch (error) {
+      console.error("Error removing song from playlist:", error);
+      toastError(
+        "Couldn't remove song",
+        errMsg(error) || "Couldn't remove this song from the playlist. Please try again."
+      );
+    }
+  };
+
   const renderDetail = (d: DetailState) => {
     const pl = d.playlist;
     return (
@@ -596,7 +701,7 @@ export default function ProfilePage() {
         </button>
 
         {d.loading && <RowSkeleton n={6} />}
-        {d.error && <ErrorBox message={d.error} onRetry={() => void openPlaylist({ id: d.id } as PlaylistItem)} />}
+        {d.error && <ErrorBox onRetry={() => void openPlaylist({ id: d.id } as PlaylistItem)} />}
 
         {pl && (
           <>
@@ -663,16 +768,14 @@ export default function ProfilePage() {
                     playing={isPlayingSong(song)}
                     onPlay={() => playSongs(song, pl.songs)}
                     menu={
-                           <SongMenu
-                             variant="row"
-                             song={song}
-                             onRemoveFromPlaylist={
-                               pl.isOwner
-                                 ? () => removeFromPlaylist(pl.id, song)
-                                 : undefined
-                             }
-                           />
-                         }
+                      <SongMenu
+                        variant="row"
+                        song={song}
+                        onRemoveFromPlaylist={
+                          pl.isOwner ? () => removeFromPlaylist(pl.id, song) : undefined
+                        }
+                      />
+                    }
                   />
                 ))}
               </div>
@@ -681,50 +784,6 @@ export default function ProfilePage() {
         )}
       </section>
     );
-  };
-
-  const removeFromPlaylist = async (playlistId: string, song: Song) => {
-    setActionError(null);
-
-    try {
-      const result = await api<unknown>(
-        `/api/playlists/${encodeURIComponent(playlistId)}/songs?songId=${encodeURIComponent(
-          String(song.id)
-        )}`,
-        { method: "DELETE" }
-      );
-
-      // Most API helpers return parsed JSON and throw for non-2xx responses.
-      // Keep this check as a safeguard if the helper returns a raw Response.
-      if (result instanceof Response && !result.ok) {
-        throw new Error(`Failed to remove song (${result.status}). Please try again.`);
-      }
-
-      setDetail((current) => {
-        if (!current || current.id !== playlistId || !current.playlist) {
-          return current;
-        }
-
-        return {
-          ...current,
-          error: null,
-          playlist: {
-            ...current.playlist,
-            songs: current.playlist.songs.filter(
-              (item) => String(item.id) !== String(song.id)
-            ),
-          },
-        };
-      });
-
-      setNotice(`Removed "${song.name || song.title || "song"}" from the playlist.`);
-      void loadPlaylists();
-    } catch (error) {
-      console.error("Error removing song from playlist:", error);
-      setActionError(
-        errMsg(error) || "Couldn't remove this song from the playlist. Please try again."
-      );
-    }
   };
 
   const renderOverview = () => (
@@ -810,6 +869,7 @@ export default function ProfilePage() {
       `}</style>
 
       <AmbientBackground />
+      <Toaster toasts={toasts} onDismiss={dismiss} />
 
       <main className="relative z-10 mx-auto w-full max-w-5xl space-y-8">
         <button
@@ -820,9 +880,8 @@ export default function ProfilePage() {
           <ArrowLeft size={14} className="text-accent" /> Back to Home
         </button>
 
-        {/* ---------------- Header ---------------- */}
         {profile.error && !p ? (
-          <ErrorBox message={profile.error} onRetry={() => void loadProfile()} />
+          <ErrorBox onRetry={() => void loadProfile()} />
         ) : (
           <header className="rounded-[2rem] border border-border-light bg-gradient-to-b from-surface to-card p-6 shadow-lg sm:p-8">
             <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:items-center sm:text-left">
@@ -910,7 +969,6 @@ export default function ProfilePage() {
           </header>
         )}
 
-        {/* ---------------- Tabs ---------------- */}
         <nav
           role="tablist"
           aria-label="Profile sections"
@@ -936,22 +994,6 @@ export default function ProfilePage() {
           ))}
         </nav>
 
-        {notice && (
-          <p
-            role="status"
-            className="rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-xs font-semibold text-success"
-          >
-            {notice}
-          </p>
-        )}
-
-        {actionError && (
-          <p role="alert" className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-xs text-error">
-            {actionError}
-          </p>
-        )}
-
-        {/* ---------------- Content ---------------- */}
         <div role="tabpanel">
           {detail ? (
             renderDetail(detail)
@@ -987,7 +1029,9 @@ export default function ProfilePage() {
         <CreatePlaylistModal
           onClose={() => setShowCreate(false)}
           onCreated={(created) => {
+            protectedIds.current.add(created.id);
             setLists((s) => ({ ...s, created: [created, ...s.created] }));
+            toastSuccess("Playlist created", `"${created.name}" is ready for songs.`);
             goTab("created");
           }}
         />

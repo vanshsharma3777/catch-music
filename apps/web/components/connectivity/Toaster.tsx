@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Wifi, WifiOff, X, ArrowLeft } from "lucide-react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Wifi, WifiOff, X, XCircle } from "lucide-react";
+
+export type ToastVariant = "offline" | "online" | "success" | "error" | "warning" | "info";
 
 export interface ToastItem {
   id: string;
-  variant: "offline" | "online";
+  variant: ToastVariant;
   title: string;
   message?: string;
   duration?: number;
@@ -27,27 +29,90 @@ const THEME = {
     bar: "bg-emerald-400",
     Icon: Wifi,
   },
+  success: {
+    ring: "ring-emerald-400/30",
+    glow: "from-emerald-500/25",
+    icon: "bg-emerald-400/15 text-emerald-300",
+    bar: "bg-emerald-400",
+    Icon: CheckCircle2,
+  },
+  error: {
+    ring: "ring-red-400/30",
+    glow: "from-red-500/25",
+    icon: "bg-red-400/15 text-red-300",
+    bar: "bg-red-400",
+    Icon: XCircle,
+  },
+  warning: {
+    ring: "ring-amber-400/30",
+    glow: "from-amber-500/25",
+    icon: "bg-amber-400/15 text-amber-300",
+    bar: "bg-amber-400",
+    Icon: AlertTriangle,
+  },
+  info: {
+    ring: "ring-sky-400/30",
+    glow: "from-sky-500/25",
+    icon: "bg-sky-400/15 text-sky-300",
+    bar: "bg-sky-400",
+    Icon: Info,
+  },
 } as const;
 
+export type ToastInput = Omit<ToastItem, "id">;
+
+export function useToaster() {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const counter = useRef(0);
+
+  const dismiss = useCallback((id: string) => {
+    setToasts((list) => list.filter((t) => t.id !== id));
+  }, []);
+
+  const push = useCallback((input: ToastInput) => {
+    const id = `t${++counter.current}`;
+    setToasts((list) => {
+      if (list.some((t) => t.variant === input.variant && t.title === input.title && t.message === input.message)) {
+        return list;
+      }
+      return [...list.slice(-3), { ...input, id }];
+    });
+    return id;
+  }, []);
+
+  return { toasts, push, dismiss };
+}
 function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string) => void }) {
   const [leaving, setLeaving] = useState(false);
+  const [paused, setPaused] = useState(false);
   const t = THEME[toast.variant];
-  const duration = toast.duration ?? 5000;
+  const duration = toast.duration ?? (toast.variant === "error" ? 6500 : 5000);
+  const isNetwork = toast.variant === "offline" || toast.variant === "online";
 
-  const close = () => {
+  const remaining = useRef(duration);
+  const startedAt = useRef(0);
+
+  const close = useCallback(() => {
     setLeaving(true);
     setTimeout(() => onDismiss(toast.id), 220);
-  };
-
+  }, [onDismiss, toast.id]);
   useEffect(() => {
-    const timer = setTimeout(close, duration);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast.id, duration]);
+    if (paused || leaving) return;
+    startedAt.current = Date.now();
+    const timer = setTimeout(close, Math.max(remaining.current, 0));
+    return () => {
+      clearTimeout(timer);
+      remaining.current -= Date.now() - startedAt.current;
+    };
+  }, [paused, leaving, close]);
 
   return (
     <div
-      role={toast.variant === "offline" ? "alert" : "status"}
+      role={toast.variant === "offline" || toast.variant === "error" ? "alert" : "status"}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
       className={`cm-toast pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-neutral-950/90 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.9)] ring-1 backdrop-blur-xl ${t.ring} ${
         leaving ? "cm-toast-out" : "cm-toast-in"
       }`}
@@ -62,7 +127,9 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string)
 
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="text-sm font-bold text-white">{toast.title}</p>
-          {toast.message && <p className="mt-0.5 text-xs leading-relaxed text-white/65">{toast.message}</p>}
+          {toast.message && (
+            <p className="mt-0.5 break-words text-xs leading-relaxed text-white/65">{toast.message}</p>
+          )}
           {toast.action && (
             <button
               onClick={() => {
@@ -71,7 +138,7 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string)
               }}
               className="mt-2.5 inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-neutral-950 transition hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              <ArrowLeft className="h-3.5 w-3.5" />
+              {isNetwork && <ArrowLeft className="h-3.5 w-3.5" />}
               {toast.action.label}
             </button>
           )}
@@ -86,11 +153,13 @@ function Toast({ toast, onDismiss }: { toast: ToastItem; onDismiss: (id: string)
         </button>
       </div>
 
-      {/* auto-dismiss countdown */}
       <div className="relative h-[3px] w-full bg-white/5">
         <div
           className={`cm-countdown h-full ${t.bar}`}
-          style={{ animationDuration: `${duration}ms` }}
+          style={{
+            animationDuration: `${duration}ms`,
+            animationPlayState: paused ? "paused" : "running",
+          }}
         />
       </div>
     </div>
@@ -115,7 +184,6 @@ export function Toaster({
         .cm-toast-out{animation:cm-out .22s ease-in both}
         .cm-countdown{animation:cm-bar linear forwards}
         .cm-ping{animation:cm-ping 1.8s ease-out 2}
-        .cm-toast:hover .cm-countdown{animation-play-state:paused}
         @media (prefers-reduced-motion:reduce){.cm-toast-in,.cm-toast-out,.cm-ping{animation-duration:.01s}}
       `}</style>
       <div
