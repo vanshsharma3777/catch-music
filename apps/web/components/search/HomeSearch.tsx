@@ -33,6 +33,7 @@ import {
   searchSongs,
 } from "../../app/lib/discoverClient";
 import SongMenu from "../SongMenu";
+import { useRouter } from "next/navigation";
 
 const RECENT_KEY = "catchmusic_recent_searches";
 const PAGE_SIZE = 24;
@@ -272,9 +273,11 @@ function EntityCard({ m, onOpen }: { m: Mini; onOpen: () => void }) {
 function SectionTitle({
   title,
   onSeeAll,
+  actionLabel = "See all",
 }: {
   title: string;
   onSeeAll?: () => void;
+  actionLabel?: string;
 }) {
   return (
     <div className="mb-2 flex items-center justify-between">
@@ -285,7 +288,7 @@ function SectionTitle({
           onClick={onSeeAll}
           className="flex items-center gap-1 text-xs font-semibold text-accent hover:underline"
         >
-          See all <ChevronRight size={14} />
+          {actionLabel} <ChevronRight size={14} />
         </button>
       )}
     </div>
@@ -316,7 +319,7 @@ export default function HomeSearch({
   onToggleCache,
 }: HomeSearchProps) {
   const player = usePlayer();
-
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [suggest, setSuggest] = useState<SuggestResult | null>(null);
@@ -457,6 +460,13 @@ export default function HomeSearch({
       }
     };
   }, [query]);
+
+  const topArtistName = useMemo(() => {
+    const fromArtists = artists[0]?.title?.trim();
+    if (fromArtists) return fromArtists;
+    const first = songs[0]?.artists?.primary?.[0]?.name || songs[0]?.artistName || "";
+    return first.trim() || null;
+  }, [artists, songs]);
 
   const ranked = useMemo(() => {
     const q = query.trim();
@@ -913,7 +923,10 @@ export default function HomeSearch({
                 <div>
                   <SectionTitle
                     title="Songs"
-                    onSeeAll={songs.length > 5 ? () => setTab("songs") : undefined}
+                    actionLabel="See more"
+                    onSeeAll={() =>
+                      router.push(`/suggested?singer=${encodeURIComponent(submitted)}`)
+                    }
                   />
                   {renderSongs(songs, 5)}
                 </div>

@@ -83,3 +83,67 @@ export function prefetchSingerSongs(names: string[]) {
     if (n && n.trim()) void getSingerSongs(n);
   });
 }
+
+// ------------------------------------------------------------------
+// Pagination (used by "Suggested for you" > See more)
+// ------------------------------------------------------------------
+
+// Ids already returned per singer. Used to drop repeats, and to stop paging
+// if the server ignores `page` and keeps returning the same songs.
+const pageSeen = new Map<string, Set<string>>();
+const pageInflight = new Map<string, Promise<{ songs: Song[]; hasMore: boolean }>>();
+
+/**
+ * Page 1 reuses the cached getSingerSongs() path (instant on repeat visits).
+ * Page 2+ always hits the network.
+ * hasMore = the page came back full AND contained at least one new song.
+ */
+export async function getSingerSongsPage(
+  name: string,
+  page: number,
+  limit: number = FETCH_LIMIT,
+): Promise<{ songs: Song[]; hasMore: boolean }> {
+  const nameKey = keyFor(name);
+
+  if (page <= 1) {
+    const songs = await getSingerSongs(name);
+    pageSeen.set(nameKey, new Set(songs.map((s) => String(s.id))));
+    // The route de-duplicates songs, so a page can be shorter than `limit`
+    // even when more exist. Only stop when a page comes back empty.
+    return { songs, hasMore: songs.length > 0 };
+  }
+
+  const reqKey = `${nameKey}:${page}`;
+  const existing = pageInflight.get(reqKey);
+  if (existing) return existing;
+
+  const p = axios
+    .post("/api/search/songs", { query: name.trim(), limit, page })
+    .then((res) => {
+      if (!res.data?.success || !Array.isArray(res.data.data)) {
+        return { songs: [] as Song[], hasMore: false };
+      }
+
+      const raw: Song[] = res.data.data;
+      const seen = pageSeen.get(nameKey) ?? new Set<string>();
+      const songs: Song[] = [];
+
+      for (const s of raw) {
+        const id = String(s.id);
+        if (!s.id || seen.has(id)) continue;
+        seen.add(id);
+        songs.push({ ...s, artistName: name });
+      }
+      pageSeen.set(nameKey, seen);
+
+      // Keep going while pages still bring new songs. A page with nothing new
+      // means the singer is exhausted (or the server ignored `page`).
+      return { songs, hasMore: songs.length > 0 };
+    })
+    // No catch here on purpose: a failed request throws, so the caller keeps
+    // hasMore = true and the user can press "See more" again.
+    .finally(() => pageInflight.delete(reqKey));
+
+  pageInflight.set(reqKey, p);
+  return p;
+}
