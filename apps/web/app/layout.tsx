@@ -2,6 +2,7 @@ import localFont from "next/font/local";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "./Providers";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -37,6 +38,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} bg-background text-primary`}
       >
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );
