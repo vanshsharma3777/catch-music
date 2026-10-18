@@ -170,7 +170,7 @@ function FavoriteSingersContent() {
 
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/")}
               className="flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl bg-surface hover:bg-bg-ter border border-border-light text-pri transition-colors cursor-pointer"
             >
               <Home size={14} className="text-accent" />

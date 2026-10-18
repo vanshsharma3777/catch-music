@@ -146,7 +146,7 @@ const songs = [
               <ButtonComponent
                 buttonInput={session.data ?`Get Started` :`Sign In to continue`}
                 classNameInputs="w-full sm:w-auto rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3.5 text-black font-semibold text-sm tracking-wide shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 hover:-translate-y-0.5"
-                onClick={session.data ?`/home` :`/signin`}
+                onClick={session.data ?`/` :`/signin`}
                 action="push"
               />
               <ButtonComponent

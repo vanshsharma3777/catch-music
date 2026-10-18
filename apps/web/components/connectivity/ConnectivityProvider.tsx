@@ -24,7 +24,7 @@ interface ConnectivityContextType {
 
 const ConnectivityContext = createContext<ConnectivityContextType>({
   isOnline: true,
-  getReturnPath: () => "/home",
+  getReturnPath: () => "/",
 });
 
 export const useConnectivity = () => useContext(ConnectivityContext);
@@ -79,9 +79,9 @@ export function ConnectivityProvider({ children }: { children: React.ReactNode }
 
   const getReturnPath = useCallback(() => {
     try {
-      return sessionStorage.getItem(RETURN_PATH_KEY) || "/home";
+      return sessionStorage.getItem(RETURN_PATH_KEY) || "/";
     } catch {
-      return "/home";
+      return "/";
     }
   }, []);
 

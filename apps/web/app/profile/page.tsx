@@ -570,7 +570,7 @@ export default function ProfilePage() {
           icon={<Heart size={24} />}
           title="No liked songs yet"
           text="Tap the heart on any song and it will show up here."
-          action={{ label: "Discover music", onClick: () => router.push("/home") }}
+          action={{ label: "Discover music", onClick: () => router.push("/") }}
         />
       );
     }
@@ -874,7 +874,7 @@ export default function ProfilePage() {
       <main className="relative z-10 mx-auto w-full max-w-5xl space-y-8">
         <button
           type="button"
-          onClick={() => router.push("/home")}
+          onClick={() => router.push("/")}
           className="inline-flex items-center gap-2 rounded-full bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-pri backdrop-blur-xl transition hover:bg-white/[0.12]"
         >
           <ArrowLeft size={14} className="text-accent" /> Back to Home

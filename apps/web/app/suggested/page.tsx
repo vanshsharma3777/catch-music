@@ -297,7 +297,7 @@ export default function SuggestedPage() {
   // opened directly (new tab, pasted link) and there is nothing to go back to.
   const goBack = () => {
     if (window.history.length > 1) router.back();
-    else router.push("/home");
+    else router.push("/");
   };
 
   const canSeeMore = songs.length > visibleCount || hasMoreRemote;
