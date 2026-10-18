@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
 import SongCard from "../components/SongCard";
 import { AmbientBackground } from "../components/AmbientBackground";
 import {
@@ -36,9 +34,11 @@ import { CoverImage, getImageUrl } from "../components/CoverImage";
 import HomeSearch from "../components/search/HomeSearch";
 import { getSingerSongsPage } from "./lib/singerSongClient";
 import axios from "axios";
-import Link from "next/link";
 import FeedbackPrompt from "../components/landing/FeedbackPrompt";
 import ContactDropdown, { CONTACTS } from "../components/ContactDropDown";
+import { signOut, useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const HOME_COUNT = 18;
 
@@ -83,10 +83,6 @@ function SectionHeader({
     </div>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/*  Mobile hamburger menu (shown below the `lg` breakpoint)            */
-/* ------------------------------------------------------------------ */
 function MobileMenu({
   offlineCount,
   onNavigate,
@@ -100,7 +96,6 @@ function MobileMenu({
   const [contactOpen, setContactOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Close on outside tap / Escape
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {

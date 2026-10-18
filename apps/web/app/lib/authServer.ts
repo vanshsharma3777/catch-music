@@ -2,7 +2,7 @@
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { getUser } from "./getUser";
-export async function getCurrentUser(req : Request) {
+export async function getCurrentUser(req? : Request) {
   const session = await  getUser(req)
   if (!session?.user?.email) {
     return null;

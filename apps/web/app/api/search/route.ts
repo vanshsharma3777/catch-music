@@ -5,9 +5,10 @@ import axios from "axios";
 import { db, singer, song, users, } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { imageConfigDefault } from "next/dist/shared/lib/image-config";
+import { getUser } from "../../lib/getUser";
 
 export async function POST(request: NextRequest) {
-    const session = await getuser(request);
+    const session = await getUser(request);
     if (!session) {
         return NextResponse.json({
             success: false,
