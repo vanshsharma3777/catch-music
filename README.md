@@ -1,5 +1,3 @@
-::: {align="center"}
-
 🎵 CatchMusic
 
 Catch your favorite beats. Play anytime.
@@ -384,6 +382,5 @@ CatchMusic
 Live website:
 catch-music.vercel.app
 
-::: {align="center"}
 Catch your favorite beats. Play anytime. 🎶
-:::
+
