@@ -112,7 +112,7 @@ export async function PUT(request: NextRequest) {
     if (!row) return fail(404, "User not found", "NOT_FOUND");
     return NextResponse.json({ success: true, user: publicProfile(row) });
   } catch (error) {
-    // Two requests can both pass the pre-check; the unique index is the real guard.
+
     if (isUniqueViolation(error)) return fail(409, "Username is already taken", "USERNAME_TAKEN");
     console.error("Error updating profile:", error);
     return fail(500, "Failed to update profile");

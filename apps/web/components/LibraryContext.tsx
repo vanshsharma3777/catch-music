@@ -336,7 +336,6 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         return nextLiked;
       } catch (err) {
         console.error("Like toggle rollback on error:", err);
-        // Rollback: re-sync the list, ids and counters from the server.
         setLikedSongIds((prev) => {
           const rollback = new Set(prev);
           if (currentlyLiked) rollback.add(id);

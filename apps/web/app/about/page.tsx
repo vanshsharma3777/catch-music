@@ -55,7 +55,6 @@ export default function ThemePreview() {
 
           router.replace("/singer-setup");
         } catch (err) {
-          console.error("Failed to check onboarding state:", err);
           const localPrefs = localStorage.getItem("catchmusic_preferences");
           if (localPrefs) {
             router.replace("/");

@@ -7,7 +7,6 @@ import { useSession } from "next-auth/react";
 
 export default function MainSection(){
   const session = useSession()
-  console.log("session " , session)
   const waveform = [2, 4, 6, 6, 8, 20, 15, 20, 34, 16, 24, 40, 56, 80, 56, 40, 24, 16, 10, 6, 8];
 const songs = [
     {

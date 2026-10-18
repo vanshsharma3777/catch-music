@@ -100,7 +100,6 @@ export default function SingerSelection() {
     const selectedSingers = SINGER_DATABASE.filter((s) =>
       selectedIds.includes(s.id)
     );
-    console.log("singers selected", selectedSingers);
     localStorage.setItem("catchmusic_preferences", JSON.stringify(selectedSingers));
 
     try {

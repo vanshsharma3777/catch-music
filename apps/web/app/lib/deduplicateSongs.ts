@@ -8,11 +8,10 @@ import { getSongFingerprint } from "./getSongFingerprint";
             for (const song of songs) {
               const fingerprint = await getSongFingerprint(song);
 
-              console.log("ran get fingerprint for song:", song.name);
-              console.log("fingerprint:", fingerprint);
+
 
               if (seen.has(fingerprint)) {
-                console.log("DUPLICATE:", song.name);
+
                 continue;
               }
 

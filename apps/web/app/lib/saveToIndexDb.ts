@@ -17,8 +17,6 @@ export function saveToIndexedDB(song: Song) {
       const tx = db.transaction("songs", "readwrite");
       const store = tx.objectStore("songs");
 
-      console.log("[DB] Saving metadata:", song.id);
-      console.log("song" , song.image)
       store.put({
         songId: song.id,
         name: song.name,
@@ -30,12 +28,10 @@ export function saveToIndexedDB(song: Song) {
       });
 
       tx.oncomplete = () => {
-        console.log("[DB] Saved:", song.id);
         resolve(true);
       };
 
       tx.onerror = (err) => {
-        console.log("[DB] Error:", err);
         reject(err);
       };
     };

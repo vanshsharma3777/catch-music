@@ -1,8 +1,6 @@
-
-
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import SongCard from "../components/SongCard";
@@ -18,9 +16,14 @@ import {
   User,
   LogOut,
   ChevronRight,
+  ChevronDown,
   Headphones,
   SlidersHorizontal,
   UserRound,
+  Menu,
+  X,
+  ExternalLink,
+  Contact,
 } from "lucide-react";
 
 import { usePlayer } from "../components/player";
@@ -35,7 +38,7 @@ import { getSingerSongsPage } from "./lib/singerSongClient";
 import axios from "axios";
 import Link from "next/link";
 import FeedbackPrompt from "../components/landing/FeedbackPrompt";
-
+import ContactDropdown, { CONTACTS } from "../components/ContactDropDown";
 
 const HOME_COUNT = 18;
 
@@ -81,6 +84,172 @@ function SectionHeader({
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Mobile hamburger menu (shown below the `lg` breakpoint)            */
+/* ------------------------------------------------------------------ */
+function MobileMenu({
+  offlineCount,
+  onNavigate,
+  onSignOut,
+}: {
+  offlineCount: number;
+  onNavigate: (path: string) => void;
+  onSignOut: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside tap / Escape
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Collapse the contact list whenever the menu closes
+  useEffect(() => {
+    if (!open) setContactOpen(false);
+  }, [open]);
+
+  const go = (path: string) => {
+    setOpen(false);
+    onNavigate(path);
+  };
+
+  const item =
+    "flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-pri transition hover:bg-white/[0.08] active:bg-white/[0.12]";
+  const iconWrap =
+    "grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent";
+
+  return (
+    <div ref={ref} className="relative lg:hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label={open ? "Close menu" : "Open menu"}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="grid h-11 w-11 cursor-pointer place-items-center rounded-full bg-white/[0.06] text-pri backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95"
+      >
+        {open ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[80vh] w-[min(20rem,calc(100vw-2rem))] origin-top-right animate-[menuIn_0.16s_ease-out] overflow-y-auto rounded-2xl border border-white/10 bg-[#14141a]/95 p-1.5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] backdrop-blur-2xl"
+        >
+          <style>{`
+            @keyframes menuIn{
+              from{opacity:0;transform:translateY(-6px) scale(.97)}
+              to{opacity:1;transform:translateY(0) scale(1)}
+            }
+          `}</style>
+
+          <button role="menuitem" onClick={() => go("/profile")} className={item}>
+            <span className={iconWrap}>
+              <UserRound size={16} />
+            </span>
+            Profile
+          </button>
+
+          <button role="menuitem" onClick={() => go("/favorite-singers")} className={item}>
+            <span className={iconWrap}>
+              <Headphones size={16} />
+            </span>
+            Artists
+          </button>
+
+          <button role="menuitem" onClick={() => go("/offline-play")} className={item}>
+            <span className={iconWrap}>
+              <HardDriveDownload size={16} />
+            </span>
+            <span className="flex-1">Offline</span>
+            <span className="rounded-full bg-white/[0.08] px-2 py-0.5 text-xs text-sec">
+              {offlineCount}
+            </span>
+          </button>
+
+          <button role="menuitem" onClick={() => go("/singer-setup")} className={item}>
+            <span className={iconWrap}>
+              <SlidersHorizontal size={16} />
+            </span>
+            Change artists
+          </button>
+
+          {/* Contact accordion */}
+          <button
+            role="menuitem"
+            onClick={() => setContactOpen((o) => !o)}
+            aria-expanded={contactOpen}
+            className={item}
+          >
+            <span className={iconWrap}>
+              <Contact size={16} />
+            </span>
+            <span className="flex-1">Contact</span>
+            <ChevronDown
+              size={16}
+              className={`text-muted transition-transform duration-200 ${
+                contactOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {contactOpen && (
+            <div className="mx-1 mb-1 space-y-0.5 rounded-xl bg-white/[0.04] p-1">
+              {CONTACTS.map((c) => (
+                <a
+                  key={c.label}
+                  role="menuitem"
+                  href={c.href}
+                  target={c.external ? "_blank" : undefined}
+                  rel={c.external ? "noopener noreferrer" : undefined}
+                  onClick={() => setOpen(false)}
+                  className="group flex items-center gap-3 rounded-lg px-2 py-2 transition hover:bg-white/[0.08] active:bg-white/[0.12]"
+                >
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent">
+                    {c.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-pri">{c.label}</span>
+                  </span>
+                  {c.external && <ExternalLink size={13} className="text-muted" />}
+                </a>
+              ))}
+            </div>
+          )}
+
+          <div aria-hidden className="mx-2 my-1.5 h-px bg-white/10" />
+
+          <button
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onSignOut();
+            }}
+            className={`${item} text-red-400 hover:!bg-red-500/15`}
+          >
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-red-500/15 text-red-400">
+              <LogOut size={16} />
+            </span>
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HomePage() {
   const router = useRouter();
   const { data: session, status: authStatus } = useSession();
@@ -93,7 +262,6 @@ export default function HomePage() {
   const [cachedTracks, setCachedTracks] = useState<any[]>([]);
   const [suggestedTracks, setSuggestedTracks] = useState<Song[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
-
 
   const [cachedSongIds, setCachedSongIds] = useState<Set<string>>(new Set());
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
@@ -155,15 +323,9 @@ export default function HomePage() {
                     .post("/api/user/preferences", {
                       favoriteSingers: parsed,
                     })
-                    .then((res) => {
-                      console.log("Status:", res.status);
-                      console.log("Response:", res.data);
-                    })
                     .catch((err) => {
-                      console.error("Status:", err.response?.status);
                       console.error("Response:", err.response?.data);
                       console.error("Message:", err.message);
-                      console.error("Stack:", err.stack);
                     });
                 }
               } catch (e) {}
@@ -208,7 +370,6 @@ export default function HomePage() {
     loadLocalData();
   }, []);
 
-  // First page from each singer, mixed randomly. "See more" opens /suggested.
   const fetchSuggestions = async (singers: Singer[]) => {
     setIsLoadingSuggestions(true);
     try {
@@ -353,8 +514,9 @@ export default function HomePage() {
 
       <AmbientBackground />
 
-      <main className="relative z-10 mx-auto w-full max-w-7xl space-y-14">
-        <header className="flex flex-wrap items-center justify-between gap-4">
+      <main className="relative z-[10] mx-auto w-full max-w-7xl space-y-14">
+
+        <header className="relative z-[100] flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
               <img
@@ -366,7 +528,10 @@ export default function HomePage() {
             <span className="text-3xl font-extrabold tracking-tight">CatchMusic</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          {/* ---------- Desktop nav (lg and up) ---------- */}
+          <div className="hidden items-center gap-2 lg:flex">
+            <ContactDropdown />
+
             <Link
               href="/profile"
               className="flex items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 py-1.5 text-xs  backdrop-blur-xl transition hover:bg-white/[0.12] hover:text-white"
@@ -403,6 +568,13 @@ export default function HomePage() {
               <LogOut size={14} />
             </button>
           </div>
+
+          {/* ---------- Mobile / tablet hamburger (below lg) ---------- */}
+          <MobileMenu
+            offlineCount={cachedTracks.length}
+            onNavigate={(path) => router.push(path)}
+            onSignOut={() => signOut({ callbackUrl: "/" })}
+          />
         </header>
 
         <HomeSearch

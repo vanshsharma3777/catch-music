@@ -178,7 +178,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
     const src = getAudioSource(song);
     if (!src) {
-      console.log("Audio source unavailable for track:", song);
       return;
     }
 
@@ -236,7 +235,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const { repeatMode, playlist, currentSong, isShuffle } = stateRef.current;
       if (repeatMode === "one") {
         audio.currentTime = 0;
-        audio.play().catch(console.error);
         return;
       }
 

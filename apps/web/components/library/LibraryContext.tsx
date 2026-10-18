@@ -297,7 +297,6 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
         return nextLiked;
       } catch (err) {
         console.error("Like toggle rollback on error:", err);
-        // Rollback
         setLikedSongIds((prev) => {
           const rollback = new Set(prev);
           if (currentlyLiked) rollback.add(id);

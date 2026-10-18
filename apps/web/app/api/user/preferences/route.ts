@@ -1,8 +1,52 @@
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../../lib/config/authOptions";
+import { redis } from "../../../lib/config/redis";
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
+
+const USER_PREFS_TTL_SECONDS = 60 * 5;
+const userPrefsKey = (email: string) => `user:prefs:${email.toLowerCase()}`;
+
+type FavoriteSingers = NonNullable<typeof users.$inferSelect["favoriteSingers"]>;
+
+type PrefsPayload = {
+  success: true;
+  hasCompletedOnboarding: boolean;
+  favoriteSingers: FavoriteSingers;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    image: string | null;
+  };
+};
+
+async function readCache(key: string): Promise<PrefsPayload | null> {
+  try {
+    return await redis.get<PrefsPayload>(key);
+  } catch (err) {
+    console.error("Redis read failed:", err);
+    return null;
+  }
+}
+
+async function writeCache(key: string, payload: PrefsPayload) {
+  try {
+    await redis.set(key, payload, { ex: USER_PREFS_TTL_SECONDS });
+    console.log("Written on redis (preferences)")
+  } catch (err) {
+    console.error("Redis write failed:", err);
+  }
+}
+
+async function invalidateCache(key: string) {
+  try {
+    await redis.del(key);
+  } catch (err) {
+    console.error("Redis delete failed:", err);
+  }
+}
 
 export async function GET(request: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -13,7 +57,17 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const email = session.user.email;
+  const cacheKey = userPrefsKey(email);
+
   try {
+    const cached = await readCache(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "X-Cache": "HIT" },
+      });
+    }
+
     const existingUser = await db
       .select({
         id: users.id,
@@ -24,24 +78,18 @@ export async function GET(request: NextRequest) {
         hasCompletedOnboarding: users.hasCompletedOnboarding,
       })
       .from(users)
-      .where(eq(users.email, session.user.email))
+      .where(eq(users.email, email))
       .limit(1);
 
-    if (existingUser.length === 0) {
+    const user = existingUser[0];
+    if (!user) {
       return NextResponse.json(
         { success: false, error: "User not found" },
         { status: 404 }
       );
     }
 
-    const user = existingUser[0];
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: "User Not Found" },
-        { status: 501 }
-      );
-    }
-    return NextResponse.json({
+    const payload: PrefsPayload = {
       success: true,
       hasCompletedOnboarding: Boolean(
         user.hasCompletedOnboarding ||
@@ -54,6 +102,12 @@ export async function GET(request: NextRequest) {
         email: user.email,
         image: user.image,
       },
+    };
+
+    await writeCache(cacheKey, payload);
+
+    return NextResponse.json(payload, {
+      headers: { "X-Cache": "MISS" },
     });
   } catch (error: any) {
     console.error("Error fetching user preferences:", error);
@@ -73,6 +127,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const email = session.user.email;
+  const cacheKey = userPrefsKey(email);
+
   try {
     const body = await request.json();
     const { favoriteSingers } = body;
@@ -91,8 +148,9 @@ export async function POST(request: NextRequest) {
         hasCompletedOnboarding: true,
         updatedAt: new Date(),
       })
-      .where(eq(users.email, session.user.email))
+      .where(eq(users.email, email))
       .returning();
+    await invalidateCache(cacheKey);
 
     return NextResponse.json({
       success: true,

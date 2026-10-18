@@ -49,7 +49,6 @@ async function respondWithRange(request, cachedResponse) {
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(APP_CACHE).then(async (cache) => {
-     console.log("sw installed")
       await cache.add(OFFLINE_PAGE);
     })
   );

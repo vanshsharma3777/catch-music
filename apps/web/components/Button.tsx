@@ -11,7 +11,6 @@ type ButtonProp ={
 
 export default function ButtonComponent({classNameInputs , onClick , buttonInput , action } : ButtonProp){
     const router = useRouter()
-    console.log("nav to" , onClick)
     return (
       <button onClick={() => {
         if (action === 'push')

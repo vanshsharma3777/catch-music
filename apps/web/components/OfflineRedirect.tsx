@@ -8,8 +8,6 @@ export default function OfflineRedirect() {
 
   useEffect(() => {
     const handleOffline = () => {
-      console.log("[Offline] Internet disconnected");
-
       router.replace("/offline-play");
     };
 

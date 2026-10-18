@@ -17,7 +17,6 @@ export async function checkStorageQuota(
   onLowStorageWarning?: (status: StorageStatus) => void
 ): Promise<StorageStatus | null> {
   if (typeof window === "undefined" || !("navigator" in window) || !("storage" in navigator)) {
-    console.warn("StorageManager API is not supported in this browser/environment.");
     return null;
   }
 
