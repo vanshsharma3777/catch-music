@@ -71,6 +71,20 @@
       "when": 1792132598534,
       "tag": "0009_moaning_vivisector",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792312283835,
+      "tag": "0010_remarkable_ezekiel",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792313852411,
+      "tag": "0011_fantastic_madelyne_pryor",
+      "breakpoints": true
     }
   ]
 }

@@ -13,6 +13,8 @@ import {
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { AdapterAccount } from "next-auth/adapters";
+import { check } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 const connectionString = process.env.DATABASE_URL!;
 const pool = postgres(connectionString, { max: 1 });
@@ -264,5 +266,30 @@ export const offlineSongMeta = pgTable(
   (table) => [
     index("idx_offline_song_user_id").on(table.userId),
     uniqueIndex("idx_offline_song_unique").on(table.userId, table.songId),
+  ]
+);
+
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: text("user_id").references(() => users.id, { onDelete: "set null" }),
+    authorName: text("author_name").notNull(),
+    message: text("message").notNull(),
+    rating: integer("rating"),
+    isVisible: boolean("is_visible").default(true).notNull(),
+    ipHash: text("ip_hash"),
+
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_feedback_visible_created").on(table.isVisible, table.createdAt),
+    index("idx_feedback_user_id").on(table.userId),
+        index("idx_feedback_ip_created").on(table.ipHash, table.createdAt),
+    check(
+      "feedback_rating_range",
+      sql`${table.rating} IS NULL OR (${table.rating} BETWEEN 1 AND 5)`
+    ),
   ]
 );

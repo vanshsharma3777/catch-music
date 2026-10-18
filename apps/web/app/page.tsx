@@ -34,6 +34,7 @@ import HomeSearch from "../components/search/HomeSearch";
 import { getSingerSongsPage } from "./lib/singerSongClient";
 import axios from "axios";
 import Link from "next/link";
+import FeedbackPrompt from "../components/landing/FeedbackPrompt";
 
 
 const HOME_COUNT = 18;
@@ -356,11 +357,7 @@ export default function HomePage() {
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
-              <img
-                src="/cm circular.png"
-                alt="CatchMusic Logo"
-                className="h-full w-full object-cover rounded-[15px]"
-              />
+
             </div>
             <span className="text-3xl font-extrabold tracking-tight">CatchMusic</span>
           </div>
@@ -653,6 +650,7 @@ export default function HomePage() {
           </>
         )}
       </main>
+      {authStatus === "authenticated" && <FeedbackPrompt />}
     </div>
   );
 }

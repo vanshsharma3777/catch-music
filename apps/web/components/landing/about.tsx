@@ -1,4 +1,6 @@
-import { Smartphone, BookOpen, Zap, Star, Globe, Send } from "lucide-react";
+import { Smartphone, BookOpen, Zap, Star, Globe } from "lucide-react";
+import ReviewsSection from "./ReviewsSection";
+import FeedbackForm from "./FeedbackForm";
 
 export default function AboutSection() {
   const stats = [
@@ -12,7 +14,7 @@ export default function AboutSection() {
   return (
     <section id="about" className="py-20 bg-bg scroll-mt-6">
       <div className="max-w-7xl mx-auto px-6 lg:px-16 space-y-20">
-        
+
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-12 border-b border-border pb-16">
           <div className="max-w-2xl space-y-6">
             <div className="inline-flex items-center rounded-full border border-border-light bg-surface px-4 py-1.5 shadow-sm">
@@ -49,7 +51,7 @@ export default function AboutSection() {
             );
           })}
         </div>
-
+        <ReviewsSection/>
         <div className="grid lg:grid-cols-12 gap-12 items-center pt-8 border-t border-border">
           <div className="lg:col-span-5 flex flex-col items-center lg:items-start text-center lg:text-left space-y-4">
             <h3 className="text-3xl font-bold tracking-tight text-pri">
@@ -65,33 +67,13 @@ export default function AboutSection() {
 
           <div className="lg:col-span-7 w-full max-w-xl mx-auto lg:ml-auto rounded-3xl border border-border bg-gradient-to-b from-surface to-card p-6 lg:p-8 shadow-lg relative overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-[var(--glow-gold)] to-transparent opacity-20 pointer-events-none" />
-            
+
             <div className="relative z-10 space-y-2 border-b border-border pb-4">
               <h4 className="text-xl font-bold tracking-tight text-pri">Give a Review</h4>
               <p className="text-xs text-sec tracking-wide">We would love to hear your architectural insights and features feedback.</p>
             </div>
 
-            <form onSubmit={(e) => e.preventDefault()} className="relative z-10 mt-6 space-y-4">
-              <div className="space-y-1">
-                <input 
-                  type="text" 
-                  placeholder="Your Name" 
-                  className="w-full bg-[var(--background)] px-4 py-3 rounded-xl border border-border-light text-sm text-pri placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] transition-colors duration-300"
-                />
-              </div>
-              <div className="space-y-1">
-                <textarea 
-                  rows={3} 
-                  placeholder="Write your feedback..." 
-                  className="w-full bg-[var(--background)] px-4 py-3 rounded-xl border border-border-light text-sm text-pri placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--primary)] resize-none transition-colors duration-300"
-                />
-              </div>
-              
-              <button className="w-full sm:w-1/2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--primary)] to-[var(--accent)] px-6 py-3 text-black font-semibold text-sm tracking-wide shadow-[var(--shadow-premium)] transition-all duration-300 hover:brightness-110 active:scale-[0.98] mx-auto">
-                <Send size={16} strokeWidth={2.25} />
-                <span>Submit Review</span>
-              </button>
-            </form>
+            <FeedbackForm />
           </div>
         </div>
 

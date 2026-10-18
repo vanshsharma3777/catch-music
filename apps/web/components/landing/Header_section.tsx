@@ -20,14 +20,13 @@ export default function HeaderSection() {
     <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-md transition-all duration-300">
       <div className="max-w-7xl mx-auto h-20 px-6 lg:px-12 flex items-center justify-between">
         <div className="flex items-center gap-3.5 cursor-pointer group">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--primary)] via-[var(--secondary)] to-[var(--background-secondary)] p-[1px] transition-transform duration-500 group-hover:scale-[1.03]">
-            <div className="flex h-full w-full items-center justify-center rounded-[11px] bg-[var(--background-secondary)]">
-              <Music4 size={18} className="text-[var(--primary)] transition-colors duration-300 group-hover:text-[var(--primary-hover)]" />
-            </div>
+          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-[var(--primary)] to-[var(--accent)] p-[1px] shadow-[0_8px_30px_-8px_var(--accent)]">
+            <img
+              src="/cm circular.png"
+              alt="CatchMusic Logo"
+              className="h-full w-full object-cover rounded-[15px]"
+            />
           </div>
-          <span className="text-xl font-semibold tracking-tight text-[var(--text-primary)] transition-all duration-300 group-hover:text-[var(--primary-hover)]">
-            CatchMusic
-          </span>
         </div>
         <nav className="hidden lg:flex items-center gap-10">
           {["features", "problems", "working", "about"].map((section) => (

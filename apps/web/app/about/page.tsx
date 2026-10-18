@@ -121,6 +121,7 @@ export default function ThemePreview() {
       <WorkingSection />
       <MomentsSection />
       <AboutSection />
+
       <ScrollButtons />
 
       <footer className="w-full bg-bg py-10">
