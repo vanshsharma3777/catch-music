@@ -1,6 +1,5 @@
 import { useSession } from "next-auth/react";
 import { authOptions } from "../../lib/config/authOptions";
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { db, singer, song, users, } from "@repo/db";
@@ -8,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { imageConfigDefault } from "next/dist/shared/lib/image-config";
 
 export async function POST(request: NextRequest) {
-    const session = await getServerSession(authOptions);
+    const session = await getuser(request);
     if (!session) {
         return NextResponse.json({
             success: false,
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
             data: data
         })
     } catch (error) {
-        
+
         return NextResponse.json({
             success: false,
             error: "internal server error"

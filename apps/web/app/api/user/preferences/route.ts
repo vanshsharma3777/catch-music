@@ -1,9 +1,10 @@
-import { getServerSession } from "next-auth";
+
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "../../../lib/config/authOptions";
 import { redis } from "../../../lib/config/redis";
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
+import { getUser } from "../../../lib/getUser";
 
 const USER_PREFS_TTL_SECONDS = 60 * 5;
 const userPrefsKey = (email: string) => `user:prefs:${email.toLowerCase()}`;
@@ -49,7 +50,8 @@ async function invalidateCache(key: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getUser(request)
+  console.log("session in preferences " , session )
   if (!session || !session.user?.email) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },
@@ -119,7 +121,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await  getUser(request)
   if (!session || !session.user?.email) {
     return NextResponse.json(
       { success: false, error: "Unauthorized" },

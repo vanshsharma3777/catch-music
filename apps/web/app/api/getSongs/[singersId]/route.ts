@@ -1,13 +1,14 @@
-import { getServerSession } from "next-auth"
 import { NextResponse } from "next/server"
 import { db, downloadUrl, song } from "@repo/db";
 import { eq } from "drizzle-orm";
 import { authOptions } from "../../../lib/config/authOptions";
 import { redis } from "../../../lib/config/redis";
+import { getUser } from "../../../lib/getUser";
 
 export async function GET( request: Request,{ params }: { params: Promise<{ singersId: string }> }) {
     const {singersId}  = await params
-    const session = await getServerSession(authOptions);
+  const session = await getUser(request);
+
     if (!session) {
         return NextResponse.json({
             success: false,

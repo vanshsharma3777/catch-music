@@ -15,10 +15,10 @@ async function getJson<T>(
   return json.data as T;
 }
 
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { authOptions } from "../../lib/config/authOptions";
+import { getUser } from "../../lib/getUser";
 
 const BASE = process.env.JIO_SAVAAN;
 const TIMEOUT_MS = 12000;
@@ -51,7 +51,7 @@ const DETAIL_TYPES = new Set(["songs", "album", "playlist", "artist"]);
 const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await getUser(req);
   if (!session?.user?.email) {
     return NextResponse.json({ success: false, error: "Unauthorized!" }, { status: 401 });
   }

@@ -1,10 +1,9 @@
-import { useSession } from "next-auth/react";
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { authOptions } from "../../../lib/config/authOptions";
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
+import { getUser } from "../../../lib/getUser";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ type: string, id: string }> }) {
     const { type, id } = await context.params
@@ -16,7 +15,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ typ
     }
     console.log("params :", type)
 
-    const session = await getServerSession(authOptions);
+    const session = await getUser(request);
     if (!session) {
         return NextResponse.json({
             success: false,

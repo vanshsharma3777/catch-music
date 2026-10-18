@@ -1,10 +1,9 @@
-﻿import { getServerSession } from "next-auth";
-import { authOptions } from "./config/authOptions";
+﻿
 import { db, users } from "@repo/db";
 import { eq } from "drizzle-orm";
-
-export async function getCurrentUser() {
-  const session = await getServerSession(authOptions);
+import { getUser } from "./getUser";
+export async function getCurrentUser(req : Request) {
+  const session = await  getUser(req)
   if (!session?.user?.email) {
     return null;
   }
@@ -17,5 +16,5 @@ export async function getCurrentUser() {
   if (found.length === 0) {
     return null;
   }
-  return found[0];
+  return found[0] ?? null;
 }

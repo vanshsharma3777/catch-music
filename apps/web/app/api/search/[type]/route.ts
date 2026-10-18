@@ -1,4 +1,3 @@
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import axios from "axios";
 import { authOptions } from "../../../lib/config/authOptions";
@@ -10,6 +9,7 @@ import { storeAlbums } from "../../../lib/storeAlbums";
 import { Song } from "../../../types/songs";
 import { deduplicateSongs } from "../../../lib/deduplicateSongs";
 import { redis } from "../../../lib/config/redis";
+import { getUser } from "../../../lib/getUser";
 
 const MAX_LIMIT = 50; // hard cap so a client can't ask for huge pages
 
@@ -34,7 +34,7 @@ export async function POST(
   }
   console.log("params :", type);
 
-  const session = await getServerSession(authOptions);
+  const session = await getUser(request);
   if (!session) {
     return NextResponse.json(
       {

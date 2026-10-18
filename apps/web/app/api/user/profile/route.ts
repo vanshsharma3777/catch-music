@@ -29,7 +29,6 @@ export async function GET() {
     const [likesRes, createdRes, savedRes, offlineRes] = await Promise.all([
       db.select({ value: count() }).from(likedSong).where(eq(likedSong.userId, user.id)),
       db.select({ value: count() }).from(playlist).where(eq(playlist.userId, user.id)),
-      // Count only playlists that are still visible, matching what the Saved tab lists.
       db
         .select({ value: count() })
         .from(savedPlaylist)

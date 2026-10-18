@@ -3,7 +3,6 @@ import { getCurrentUser } from "../authServer";
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>;
 
-/** Uniform error body: `{ success:false, error, code? }`. */
 export function fail(status: number, error: string, code?: string) {
   return NextResponse.json({ success: false, error, ...(code ? { code } : {}) }, { status });
 }

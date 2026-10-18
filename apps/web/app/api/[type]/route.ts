@@ -1,5 +1,4 @@
 // app/api/search/[type]/route.ts
-import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse, after } from "next/server";
 import axios from "axios";
 import { Song } from "../../types/songs";
@@ -11,6 +10,7 @@ import { authOptions } from "../../lib/config/authOptions";
 import { storeAlbums } from "../../lib/storeAlbums";
 import { storeArtists } from "../../lib/storeArtists";
 import { storeSongs } from "../../lib/storeSongs";
+import { getUser } from "../../lib/getUser";
 
 const SONGS_UPSTREAM_LIMIT = 25;
 const SONGS_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -35,7 +35,7 @@ export async function POST(
     return NextResponse.json({ success: false, error: "Params not found!" }, { status: 401 });
   }
 
-  const session = await getServerSession(authOptions);
+  const session = await getUser(request);
   const email = session?.user?.email;
   if (!session || !email) {
     return NextResponse.json({ success: false, error: "Unauthorized!" }, { status: 400 });
