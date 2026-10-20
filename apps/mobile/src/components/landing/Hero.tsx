@@ -1,6 +1,4 @@
-import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
+import {  StyleSheet, Text, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { colors, radius } from "../../constants/theme";
 import { Logo } from "../ui/Logo";
@@ -14,35 +12,7 @@ const PERKS: { icon: keyof typeof Feather.glyphMap; label: string }[] = [
   { icon: "unlock", label: "No premium\nneeded" },
 ];
 
-function PulseGlow() {
-  const v = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(v, { toValue: 1, duration: 2600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(v, { toValue: 0, duration: 2600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [v]);
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[
-        styles.glow,
-        {
-          opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }),
-          transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1.1] }) }],
-        },
-      ]}
-    >
-      <LinearGradient colors={["rgba(212,175,55,0.38)", "transparent"]} style={StyleSheet.absoluteFill} />
-    </Animated.View>
-  );
-}
 
 export function Hero({ onStart, onExplore }: { onStart: () => void; onExplore: () => void }) {
   return (
@@ -87,7 +57,6 @@ export function Hero({ onStart, onExplore }: { onStart: () => void; onExplore: (
 
       <FadeIn delay={520} distance={34}>
         <View>
-          <PulseGlow />
           <PlayerPreview />
         </View>
       </FadeIn>
@@ -118,14 +87,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.glowGold, borderWidth: 1, borderColor: colors.borderGlow,
   },
   perkText: { color: colors.sec, fontSize: 11, fontWeight: "700", textAlign: "center", lineHeight: 15 },
-  glow: {
-    position: "absolute",
-    top: -70,
-    left: "50%",
-    marginLeft: -180,
-    width: 360,
-    height: 360,
-    borderRadius: 180,
-    overflow: "hidden",
-  },
 });
