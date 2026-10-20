@@ -1,10 +1,11 @@
+import { API_URL } from "../config/env";
 import { getToken } from "./authStore";
 
 type Options = RequestInit & { auth?: boolean };
 
 export async function api<T>(path: string, { auth = true, headers, ...init }: Options = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(`${process.env.API_URL}${path}`, {
+  const res = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
