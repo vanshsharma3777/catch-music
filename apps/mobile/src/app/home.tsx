@@ -21,7 +21,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (status !== "signedIn") return;
     console.log("status " , status)
-    api<Profile>("/api/user/profile")
+    api<Profile>("/api/debug/me")
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed"));
   }, [status]);
