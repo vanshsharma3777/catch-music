@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   trigger: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
   panel: {
     position: "absolute", width: PANEL_W, padding: 6, borderRadius: 18,
-    backgroundColor: "rgba(20,20,20,0.98)", borderWidth: 1, borderColor: colors.borderLight,
+    backgroundColor: "rgba(20,20,20,0.98)", borderWidth: 0,
     shadowColor: "#000", shadowOpacity: 0.4, shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 }, elevation: 20,
   },
@@ -366,20 +366,20 @@ const styles = StyleSheet.create({
   createTitle: { color: colors.pri, fontSize: 15, fontWeight: "800", marginBottom: 10, marginLeft: 2 },
   input: {
     color: colors.pri, fontSize: 14, fontWeight: "600", paddingHorizontal: 12, paddingVertical: 10,
-    borderRadius: 12, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.border,
+    borderRadius: 12, backgroundColor: colors.glass,  borderColor: colors.border,
   },
   pills: { flexDirection: "row", gap: 8, marginTop: 10 },
   pill: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
     paddingVertical: 9, borderRadius: 12, backgroundColor: colors.glass,
-    borderWidth: 1, borderColor: colors.border,
+    borderColor: colors.border,
   },
   pillOn: { backgroundColor: colors.accent, borderColor: colors.accent },
   pillText: { color: colors.sec, fontSize: 12, fontWeight: "700" },
   createRow: { flexDirection: "row", gap: 8, marginTop: 12 },
   cancelBtn: {
     flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: "center",
-    backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.glass, borderColor: colors.border,
   },
   cancelText: { color: colors.sec, fontSize: 13, fontWeight: "700" },
   createBtn: {

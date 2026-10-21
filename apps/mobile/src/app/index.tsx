@@ -1,7 +1,14 @@
+
 import { Redirect } from "expo-router";
 import { useAuth } from "../providers/AuthProvider";
 
 export default function Index() {
   const { status } = useAuth();
-  return <Redirect href={(status === "signedIn" ? "/home" : "/welcome") as never} />;
+
+  if (status === "loading") return null;
+
+  return (
+    <Redirect href={status === "signedIn" ? "/home" : "/welcome"} />
+  );
 }
+

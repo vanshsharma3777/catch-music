@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "../constants/theme";
 import { AuthProvider } from "../providers/AuthProvider";
 import { PlayerProvider } from "../providers/PlayerProvider";
+import { MiniPlayer } from "../components/player/MiniPlayer";
 import { FullPlayer } from "../components/player/FullPlayer";
 
 export default function RootLayout() {
@@ -19,6 +20,7 @@ export default function RootLayout() {
               animation: "fade",
             }}
           />
+          <MiniPlayer />
           <FullPlayer />
         </PlayerProvider>
       </AuthProvider>

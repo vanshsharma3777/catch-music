@@ -2,7 +2,6 @@ import type { Song } from "../types/song";
 
 const NAMED: Record<string, string> = { quot: '"', amp: "&", apos: "'", lt: "<", gt: ">", nbsp: " " };
 
-/** The music API returns titles like: Tera Mera Rishta (From &quot;Awarapan 2&quot;) */
 export function decodeHtml(input?: string | null): string {
   if (!input) return "";
   return input.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, entity: string) => {
@@ -31,7 +30,6 @@ export function getArtistName(song?: Song | null): string {
   return "Unknown Artist";
 }
 
-/** thumb = small/medium (cards), full = highest resolution (full player). */
 export function getSongImage(song?: Song | null, size: "thumb" | "full" = "full"): string {
   const img = song?.image;
   if (Array.isArray(img)) {
@@ -42,7 +40,6 @@ export function getSongImage(song?: Song | null, size: "thumb" | "full" = "full"
   return typeof img === "string" ? img : "";
 }
 
-/** Highest quality stream URL, or "" (never returns a web page URL). */
 export function getAudioUrl(song?: Song | null): string {
   const d = song?.downloadUrl;
   if (Array.isArray(d) && d.length > 0) return d[d.length - 1]?.url || "";

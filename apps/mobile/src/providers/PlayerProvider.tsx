@@ -1,363 +1,291 @@
-import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { engine } from "../lib/audioEngine";
+import { registerPlayHandler } from "../lib/playerBridge";
 import type { Song } from "../types/song";
-import {
-  getArtistName,
-  getAudioUrl,
-  getSongImage,
-  getSongTitle,
-  sameSong,
-} from "../lib/songHelpers";
-import { addRecentSong, hydrateRecent } from "../lib/recentSongs";
-import { ensureOfflineLoaded, getOfflineUri } from "../lib/offlineStore";
-export type RepeatMode = "off" | "all" | "one";
-
-type PlayerContextType = {
+import type { EngineStatus, RepeatMode } from "../types/player";
+import { getAudioUrl } from "../lib/songMeta";
+import { getArtist, getImage, getTitle } from "../types/songMeta";
+import { addRecentSong } from "../lib/recentSongs";
+type PlayerState = {
   currentSong: Song | null;
+  upNext: Song[];
   isPlaying: boolean;
   isBuffering: boolean;
-  currentTime: number;
-  duration: number;
-  volume: number; // 0..1
-  isMuted: boolean;
   isShuffle: boolean;
-  repeatMode: RepeatMode;
-  queue: Song[];
-  fullOpen: boolean;
+  repeat: RepeatMode;
+  expanded: boolean;
+  hasNext: boolean;
+  hasPrev: boolean;
 
-  playSong: (song: Song, list?: Song[]) => void;
-  togglePlay: () => void;
-  nextSong: () => void;
-  previousSong: () => void;
-  seek: (seconds: number) => void;
-  setVolume: (v: number) => void;
-  toggleMute: () => void;
-  toggleShuffle: () => void;
-  cycleRepeat: () => void;
-  openFull: () => void;
-  closeFull: () => void;
-  closePlayer: () => void;
+  volume: number;
+  isMuted: boolean;
 };
 
-const PlayerContext = createContext<PlayerContextType | null>(null);
 
-/** replace() ke baad player volume/mute reset kar deta hai, isliye har baar dobara lagate hain */
-function applyVolume(player: AudioPlayer, vol: number, muted: boolean) {
-  if (Math.abs(player.volume - vol) > 0.001) player.volume = vol;
-  if (player.muted !== muted) player.muted = muted;
+type PlayerActions = {
+  playSong: (song: Song, queue?: Song[]) => void;
+  toggle: () => void;
+  next: () => void;
+  prev: () => void;
+  seek: (seconds: number) => void;
+  toggleShuffle: () => void;
+  cycleRepeat: () => void;
+  open: () => void;
+  close: () => void;
+
+  setVolume: (volume: number) => void;
+  toggleMute: () => void;
+};
+
+type Progress = { position: number; duration: number };
+
+const StateCtx = createContext<(PlayerState & PlayerActions) | null>(null);
+const ProgressCtx = createContext<Progress>({ position: 0, duration: 0 });
+
+const sameId = (a: Song, b: Song) => String(a.id) === String(b.id);
+
+function makeOrder(len: number, shuffle: boolean, first: number): number[] {
+  const idx = Array.from({ length: len }, (_, i) => i);
+  if (!shuffle) return idx;
+  const rest = idx.filter((i) => i !== first);
+  for (let i = rest.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [rest[i], rest[j]] = [rest[j]!, rest[i]!];
+  }
+  return [first, ...rest];
 }
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [queue, setQueue] = useState<Song[]>([]);
+  const [order, setOrder] = useState<number[]>([]);
+  const [pos, setPos] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [volume, setVolumeState] = useState(0.85);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
-  const [queue, setQueue] = useState<Song[]>([]);
-  const [fullOpen, setFullOpen] = useState(false);
+  const [isShuffle, setShuffle] = useState(false);
+  const [repeat, setRepeat] = useState<RepeatMode>("off");
+  const [expanded, setExpanded] = useState(false);
+  const [progress, setProgress] = useState<Progress>({ position: 0, duration: 0 });
+  const [volume, setVolumeState] = useState(() => engine.getVolume());
 
-  const playerRef = useRef<AudioPlayer | null>(null);
-  const historyRef = useRef<Song[]>([]);
-  const volumeRef = useRef(0.85);
-  const mutedRef = useRef(false);
+const [isMuted, setIsMuted] = useState(false);
 
-  // "starting" = play dabaya gaya hai par audio abhi asli me shuru nahi hua.
-  // Is dauran status updates ke `playing: false` ko ignore karte hain (button flicker fix).
-  const startingRef = useRef(false);
-  const startTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const previousVolume = useRef(volume > 0 ? volume : 1);
 
-  const markStarting = useCallback(() => {
-    startingRef.current = true;
-    if (startTimer.current) clearTimeout(startTimer.current);
-    // safety: load fail ho jaye to button hamesha ke liye atka na rahe
-    startTimer.current = setTimeout(() => {
-      startingRef.current = false;
-    }, 8000);
-  }, []);
+  const live = useRef({ queue, order, pos, repeat, isShuffle, position: 0 });
+  live.current = { queue, order, pos, repeat, isShuffle, position: progress.position };
+  const endedGuard = useRef(false);
 
-  const clearStarting = useCallback(() => {
-    startingRef.current = false;
-    if (startTimer.current) clearTimeout(startTimer.current);
-  }, []);
+  const currentSong = queue[order[pos] ?? -1] ?? null;
 
-  const live = useRef({ currentSong, isPlaying, currentTime, queue, isShuffle, repeatMode });
-  live.current = { currentSong, isPlaying, currentTime, queue, isShuffle, repeatMode };
-
-  const endedRef = useRef<() => void>(() => {});
-
-  useEffect(() => {
-    void hydrateRecent();
-    void ensureOfflineLoaded();
-    setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: "doNotMix",
-    }).catch(() => {});
-
-    const player = createAudioPlayer(null);
-    player.volume = 0.85;
-    playerRef.current = player;
-
-    const sub = player.addListener("playbackStatusUpdate", (s) => {
-      applyVolume(player, volumeRef.current, mutedRef.current);
-
-      // audio asli me chal pada (ya khatam hua) => "starting" khatam
-      if (s.playing || s.didJustFinish) clearStarting();
-
-      setCurrentTime(s.currentTime ?? 0);
-      if (s.duration && s.duration > 0) setDuration(s.duration);
-      setIsPlaying(startingRef.current ? true : !!s.playing);
-      setIsBuffering(startingRef.current ? true : !!s.isBuffering);
-      if (s.didJustFinish) endedRef.current();
-    });
-
-    return () => {
-      sub.remove();
-      if (startTimer.current) clearTimeout(startTimer.current);
-      try {
-        player.release();
-      } catch {}
-      playerRef.current = null;
-    };
-  }, [clearStarting]);
-
-  const startTrack = useCallback(
-    (song: Song, list?: Song[]) => {
-      const player = playerRef.current;
-      const url = getOfflineUri(song.id) ?? getAudioUrl(song);
-      if (!player || !url) return;
-
-      player.replace({ uri: url });
-      applyVolume(player, volumeRef.current, mutedRef.current);
-      player.play();
-      markStarting();
-
-      try {
-        player.setActiveForLockScreen(true, {
-          title: getSongTitle(song),
-          artist: getArtistName(song),
-          artworkUrl: getSongImage(song) || undefined,
-        });
-      } catch {}
-
-      setCurrentSong(song);
-      setCurrentTime(0);
-      setDuration(Number(song.duration) || 0);
-      setIsPlaying(true);
-      setIsBuffering(true);
-      addRecentSong(song);
-
-      if (list && list.length > 0) {
-        setQueue(list);
-      } else {
-        setQueue((prev) => (prev.some((s) => sameSong(s, song)) ? prev : [song, ...prev]));
-      }
-    },
-    [markStarting]
-  );
-
-  const pickNext = useCallback((auto: boolean): Song | null => {
-    const { currentSong: cur, queue: q, isShuffle: shuf, repeatMode: rep } = live.current;
-    if (!cur || q.length === 0) return null;
-
-    if (shuf && q.length > 1) {
-      const others = q.filter((s) => !sameSong(s, cur));
-      return others[Math.floor(Math.random() * others.length)] ?? null;
-    }
-
-    const idx = q.findIndex((s) => sameSong(s, cur));
-    if (idx !== -1 && idx < q.length - 1) return q[idx + 1] ?? null;
-
-    const wrap = auto ? rep === "all" : rep !== "off";
-    return wrap ? q[0] ?? null : null;
-  }, []);
-
-  const goNext = useCallback(
-    (auto: boolean) => {
-      const next = pickNext(auto);
-      const cur = live.current.currentSong;
-      if (!next) {
-        if (auto) setIsPlaying(false);
-        return;
-      }
-      if (cur) historyRef.current.push(cur);
-      if (historyRef.current.length > 50) historyRef.current.shift();
-      startTrack(next, live.current.queue);
-    },
-    [pickNext, startTrack]
-  );
-
-  endedRef.current = () => {
-    const player = playerRef.current;
-    if (live.current.repeatMode === "one" && player) {
-      void player.seekTo(0);
-      player.play();
+  const startAt = useCallback((q: Song[], o: number[], p: number) => {
+    const song = q[o[p] ?? -1];
+    if (!song) return;
+    const url = getAudioUrl(song);
+    setQueue(q);
+    setOrder(o);
+    setPos(p);
+    setProgress({ position: 0, duration: Number(song.duration) || 0 });
+    endedGuard.current = false;
+    if (!url) {
+      setIsPlaying(false);
       return;
     }
-    goNext(true);
-  };
-
-  const togglePlay = useCallback(() => {
-    const player = playerRef.current;
-    if (!player || !live.current.currentSong) return;
-
-    if (live.current.isPlaying) {
-      clearStarting();
-      player.pause();
-      setIsPlaying(false);
-    } else {
-      applyVolume(player, volumeRef.current, mutedRef.current);
-      player.play();
-      markStarting();
-      setIsPlaying(true);
-    }
-  }, [clearStarting, markStarting]);
+    engine.load(url, { title: getTitle(song), artist: getArtist(song), artwork: getImage(song) });
+  }, []);
 
   const playSong = useCallback(
-    (song: Song, list?: Song[]) => {
-      if (sameSong(live.current.currentSong, song)) {
-        togglePlay();
-        return;
+    (song: Song, list: Song[] = [song]) => {
+      let q = list;
+      let idx = q.findIndex((s) => sameId(s, song));
+      if (idx === -1) {
+        q = [song, ...list];
+        idx = 0;
       }
-      historyRef.current = [];
-      startTrack(song, list);
+      const shuffle = live.current.isShuffle;
+      const o = makeOrder(q.length, shuffle, idx);
+      startAt(q, o, shuffle ? 0 : idx);
     },
-    [startTrack, togglePlay]
+    [startAt]
   );
 
-  const nextSong = useCallback(() => goNext(false), [goNext]);
+  const next = useCallback(
+    (auto = false) => {
+      const { queue: q, order: o, pos: p, repeat: r } = live.current;
+      if (q.length === 0) return;
+      if (p + 1 < o.length) return startAt(q, o, p + 1);
+      if (r === "all") return startAt(q, o, 0);
+      if (auto) {
+        engine.stop();
+        setIsPlaying(false);
+      }
+    },
+    [startAt]
+  );
 
-  const previousSong = useCallback(() => {
-    const player = playerRef.current;
-    const { currentSong: cur, queue: q, currentTime: t } = live.current;
-    if (!player || !cur) return;
-
-    if (t > 3) {
-      void player.seekTo(0);
-      setCurrentTime(0);
-      return;
-    }
-
-    const fromHistory = historyRef.current.pop();
-    if (fromHistory) {
-      startTrack(fromHistory, q);
-      return;
-    }
-
+  const prev = useCallback(() => {
+    const { queue: q, order: o, pos: p, repeat: r, position } = live.current;
     if (q.length === 0) return;
-    const idx = q.findIndex((s) => sameSong(s, cur));
-    const prev = q[idx > 0 ? idx - 1 : q.length - 1];
-    if (prev) startTrack(prev, q);
-  }, [startTrack]);
+    if (position > 3) return void engine.seek(0);
+    if (p > 0) return startAt(q, o, p - 1);
+    if (r === "all") return startAt(q, o, o.length - 1);
+    engine.seek(0);
+  }, [startAt]);
 
-  const seek = useCallback((seconds: number) => {
-    const player = playerRef.current;
-    if (!player) return;
-    const max = player.duration > 0 ? player.duration : seconds;
-    const clamped = Math.max(0, Math.min(seconds, max));
-    void player.seekTo(clamped);
-    setCurrentTime(clamped);
+  const toggle = useCallback(() => {
+    if (!live.current.queue.length) return;
+    if (isPlaying) engine.pause();
+    else engine.play();
+  }, [isPlaying]);
+
+  const seek = useCallback((s: number) => {
+    engine.seek(s);
+    setProgress((p) => ({ ...p, position: s }));
   }, []);
 
-  const setVolume = useCallback((v: number) => {
-    const player = playerRef.current;
-    const clamped = Math.max(0, Math.min(1, v));
-    if (player) {
-      player.volume = clamped;
-      player.muted = clamped === 0;
-    }
-    volumeRef.current = clamped;
-    mutedRef.current = clamped === 0;
-    setVolumeState(clamped);
-    setIsMuted(clamped === 0);
+  const toggleShuffle = useCallback(() => {
+    const { queue: q, order: o, pos: p, isShuffle: on } = live.current;
+    const nowIdx = o[p] ?? 0;
+    const turnOn = !on;
+    setShuffle(turnOn);
+    if (q.length === 0) return;
+    setOrder(makeOrder(q.length, turnOn, nowIdx));
+    setPos(turnOn ? 0 : nowIdx);
   }, []);
 
-  const toggleMute = useCallback(() => {
-    const player = playerRef.current;
-    if (!player) return;
-    const next = !player.muted;
-    if (!next && player.volume === 0) player.volume = 0.6;
-    player.muted = next;
-    mutedRef.current = next;
-    volumeRef.current = player.volume;
-    setIsMuted(next);
-    setVolumeState(player.volume);
-  }, []);
-
-  const toggleShuffle = useCallback(() => setIsShuffle((s) => !s), []);
   const cycleRepeat = useCallback(
-    () => setRepeatMode((m) => (m === "off" ? "all" : m === "all" ? "one" : "off")),
+    () => setRepeat((r) => (r === "off" ? "all" : r === "all" ? "one" : "off")),
     []
   );
 
-  const openFull = useCallback(() => setFullOpen(true), []);
-  const closeFull = useCallback(() => setFullOpen(false), []);
+  useEffect(() => {
+    engine.onStatus((st: EngineStatus) => {
+      setIsPlaying(st.playing);
+      setIsBuffering(st.buffering);
+      setProgress((p) => ({
+        position: st.position,
+        duration: st.duration > 0 ? st.duration : p.duration,
+      }));
 
-  const closePlayer = useCallback(() => {
-    clearStarting();
-    playerRef.current?.pause();
-    try {
-      playerRef.current?.clearLockScreenControls();
-    } catch {}
-    setFullOpen(false);
-    setCurrentSong(null);
-    setIsPlaying(false);
-    setIsBuffering(false);
-    setCurrentTime(0);
-    setDuration(0);
-  }, [clearStarting]);
+      if (st.ended && !endedGuard.current) {
+        endedGuard.current = true;
+        if (live.current.repeat === "one") {
+          engine.seek(0);
+          engine.play();
+          setTimeout(() => (endedGuard.current = false), 800);
+        } else {
+          next(true);
+        }
+      }
+    });
+    return () => engine.onStatus(null);
+  }, [next]);
 
-  const value = useMemo<PlayerContextType>(
-    () => ({
-      currentSong,
-      isPlaying,
-      isBuffering,
-      currentTime,
-      duration,
-      volume,
-      isMuted,
-      isShuffle,
-      repeatMode,
-      queue,
-      fullOpen,
-      playSong,
-      togglePlay,
-      nextSong,
-      previousSong,
-      seek,
-      setVolume,
-      toggleMute,
-      toggleShuffle,
-      cycleRepeat,
-      openFull,
-      closeFull,
-      closePlayer,
-    }),
-    [
-      currentSong, isPlaying, isBuffering, currentTime, duration, volume, isMuted,
-      isShuffle, repeatMode, queue, fullOpen, playSong, togglePlay, nextSong,
-      previousSong, seek, setVolume, toggleMute, toggleShuffle, cycleRepeat,
-      openFull, closeFull, closePlayer,
-    ]
+  useEffect(() => {
+  if (currentSong) {
+    addRecentSong(currentSong);
+  }
+}, [currentSong]);
+
+  useEffect(() => {
+    registerPlayHandler((song, q) => playSong(song, q));
+    return () => registerPlayHandler(null);
+  }, [playSong]);
+
+  const upNext = useMemo(
+    () => order.slice(pos + 1, pos + 6).map((i) => queue[i]).filter(Boolean) as Song[],
+    [order, pos, queue]
   );
+  const setVolume = useCallback((value: number) => {
+  const nextVolume = Math.max(0, Math.min(1, value));
 
-  return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
+  engine.setVolume(nextVolume);
+  setVolumeState(nextVolume);
+  setIsMuted(nextVolume === 0);
+
+  if (nextVolume > 0) {
+    previousVolume.current = nextVolume;
+  }
+}, []);
+
+const toggleMute = useCallback(() => {
+  if (isMuted || volume === 0) {
+    const restoredVolume = previousVolume.current || 1;
+
+    engine.setVolume(restoredVolume);
+    setVolumeState(restoredVolume);
+    setIsMuted(false);
+  } else {
+    previousVolume.current = volume;
+
+    engine.setVolume(0);
+    setVolumeState(0);
+    setIsMuted(true);
+  }
+}, [isMuted, volume]);
+  const value = useMemo(
+  () => ({
+    currentSong,
+    upNext,
+    isPlaying,
+    isBuffering,
+    isShuffle,
+    repeat,
+    expanded,
+
+    hasNext: pos + 1 < order.length || repeat === "all",
+    hasPrev: pos > 0 || repeat === "all",
+
+    playSong,
+    toggle,
+    next: () => next(false),
+    prev,
+    seek,
+    toggleShuffle,
+    cycleRepeat,
+
+    open: () => setExpanded(true),
+    close: () => setExpanded(false),
+
+    volume,
+    isMuted,
+    setVolume,
+    toggleMute,
+  }),
+  [
+    currentSong,
+    upNext,
+    isPlaying,
+    isBuffering,
+    isShuffle,
+    repeat,
+    expanded,
+    pos,
+    order.length,
+    playSong,
+    toggle,
+    next,
+    prev,
+    seek,
+    toggleShuffle,
+    cycleRepeat,
+    volume,
+    isMuted,
+    setVolume,
+    toggleMute,
+  ]
+);
+
+  return (
+    <StateCtx.Provider value={value}>
+      <ProgressCtx.Provider value={progress}>{children}</ProgressCtx.Provider>
+    </StateCtx.Provider>
+  );
 }
 
 export function usePlayer() {
-  const ctx = useContext(PlayerContext);
+  const ctx = useContext(StateCtx);
   if (!ctx) throw new Error("usePlayer must be used inside <PlayerProvider>");
   return ctx;
 }
+
+export const usePlayerProgress = () => useContext(ProgressCtx);

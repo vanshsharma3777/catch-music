@@ -1,7 +1,8 @@
-// Plain module so non-React code (api.ts) can read the token.
 let token: string | null = null;
 
-export const getToken = () => token;
-export const setToken = (t: string | null) => {
+export const getToken = (): string | null => token;
+
+export const setToken = (t: string | null): void => {
   token = t;
 };
+

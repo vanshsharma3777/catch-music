@@ -1,5 +1,6 @@
+import { Singer } from "../constants/singers";
+import { HomeUser, Song } from "../types/song";
 import { api } from "./api";
-import type { HomeUser, Singer, Song } from "../types/song";
 
 /** Same route the website uses: POST /api/search/songs */
 export async function fetchSingerSongs(name: string, page = 1, limit = 20): Promise<Song[]> {

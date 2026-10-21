@@ -1,32 +1,42 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
-import { setToken } from "../lib/authStore";
 
-type Status = "signedOut" | "signedIn";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { getToken, setToken } from "../lib/authStore";
+
+type Status = "loading" | "signedOut" | "signedIn";
 
 type AuthContextType = {
   status: Status;
   signIn: () => Promise<void>;
   signOut: () => void;
 };
-console.log("DEV TOKEn" , process.env.EXPO_PUBLIC_DEV_TOKEN)
-console.log("DEV TOKEn" , process.env.EXPO_PUBLIC_API_URL)
+
 const AuthContext = createContext<AuthContextType | null>(null);
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [status, setStatus] = useState<Status>("signedOut");
+  const [status, setStatus] = useState<Status>("loading");
+
+ useEffect(() => { const token = getToken(); setStatus(token ? "signedIn" : "signedOut"); }, []);
 
   const signIn = useCallback(async () => {
-    await new Promise((r) => setTimeout(r, 700)); 
-    if (!process.env.EXPO_PUBLIC_DEV_TOKEN) throw new Error("Missing EXPO_PUBLIC_EXPO_PUBLIC_DEV_TOKEN in apps/mobile/.env");
-    setToken(process.env.EXPO_PUBLIC_DEV_TOKEN);
+    await new Promise((resolve) => setTimeout(resolve, 700));
+
+    const token = process.env.EXPO_PUBLIC_DEV_TOKEN;
+    if (!token) throw new Error("Missing EXPO_PUBLIC_DEV_TOKEN in apps/mobile/.env");
+
+    await setToken(token);
     setStatus("signedIn");
   }, []);
 
   const signOut = useCallback(() => {
-    setToken(null);
+    void setToken(null);
     setStatus("signedOut");
   }, []);
 
-  const value = useMemo(() => ({ status, signIn, signOut }), [status, signIn, signOut]);
+  const value = useMemo(
+    () => ({ status, signIn, signOut }),
+    [status, signIn, signOut]
+  );
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
