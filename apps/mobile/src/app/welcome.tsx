@@ -8,12 +8,13 @@ import { AmbientBackground } from "../components/ui/AmbientBackground";
 import { Marquee } from "../components/ui/Marquee";
 import { Hero } from "../components/landing/Hero";
 import { Features } from "../components/landing/Features";
+import { OfflineMoment } from "../components/landing/OfflineMoment";
 import { HowItWorks } from "../components/landing/HowItWorks";
 import { Reviews } from "../components/landing/Reviews";
 import { FinalCta } from "../components/landing/FinalCta";
 import { StickyHeader } from "../components/landing/StickyHeader";
-
-const TICKER = ["Offline playback", "Zero ads", "No premium needed", "Likes & playlists", "Smart storage"];
+import { Reveal, ScrollProvider } from "../components/landing/ScrollReveal";
+import { TICKER } from "../components/landing/landingData";
 
 export default function WelcomeScreen() {
   const router = useRouter();
@@ -23,46 +24,60 @@ export default function WelcomeScreen() {
   const featuresY = useRef(0);
 
   const goStart = () => router.push("/signin" as never);
-  const goFeatures = () => scroll.current?.scrollTo({ y: featuresY.current - 70, animated: true });
+  const goFeatures = () =>
+    scroll.current?.scrollTo({ y: Math.max(0, featuresY.current - 70), animated: true });
 
   return (
     <View style={styles.root}>
       <AmbientBackground />
 
-      <ScrollView
-        ref={scroll}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
-        contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 48 }}
-      >
-        <View style={styles.pad}>
-          <Hero onStart={goStart} onExplore={goFeatures} />
-        </View>
-
-        <View style={styles.section}>
-          <Marquee items={TICKER} />
-        </View>
-
-        <View
-          style={[styles.pad, styles.section]}
-          onLayout={(e) => (featuresY.current = e.nativeEvent.layout.y)}
+      <ScrollProvider value={scrollY}>
+        <ScrollView
+          ref={scroll}
+          showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => scrollY.setValue(e.nativeEvent.contentOffset.y)}
+          contentContainerStyle={{ paddingTop: insets.top + 12, paddingBottom: insets.bottom + 56 }}
         >
-          <Features />
-        </View>
+          <View style={styles.pad}>
+            <Hero onStart={goStart} onExplore={goFeatures} />
+          </View>
 
-        <View style={[styles.pad, styles.section]}>
-          <HowItWorks />
-        </View>
+          <Reveal style={styles.section}>
+            <Marquee items={TICKER} />
+          </Reveal>
 
-        <View style={styles.section}>
-          <Reviews />
-        </View>
+          <Reveal
+            style={styles.section}
+            // Reveal wraps the View below; we read its position for "Explore Features"
+          >
+            <View onLayout={() => undefined}>
+              <View
+                onLayout={(e) => {
+                  featuresY.current = e.nativeEvent.layout.y;
+                }}
+              />
+              <Features />
+            </View>
+          </Reveal>
 
-        <View style={[styles.pad, styles.section]}>
-          <FinalCta onStart={goStart} />
-        </View>
-      </ScrollView>
+          <Reveal style={[styles.pad, styles.section]}>
+            <OfflineMoment />
+          </Reveal>
+
+          <Reveal style={[styles.pad, styles.section]}>
+            <HowItWorks />
+          </Reveal>
+
+          <Reveal style={styles.section}>
+            <Reviews />
+          </Reveal>
+
+          <Reveal style={[styles.pad, styles.section]}>
+            <FinalCta onStart={goStart} />
+          </Reveal>
+        </ScrollView>
+      </ScrollProvider>
 
       <StickyHeader scrollY={scrollY} top={insets.top} onStart={goStart} />
     </View>
@@ -72,5 +87,5 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   pad: { paddingHorizontal: 24 },
-  section: { marginTop: 64 },
+  section: { marginTop: 72 },
 });

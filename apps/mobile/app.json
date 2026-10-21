@@ -6,9 +6,10 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-     "backgroundColor": "#030303",
+    "backgroundColor": "#030303",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": { "UIBackgroundModes": ["audio"] }
     },
     "scheme": "catchmusic",
     "android": {
@@ -28,10 +29,10 @@
       }
     },
     "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-status-bar"
-    ],
+  "expo-router",
+  "expo-secure-store",
+  ["expo-audio", { "enableBackgroundPlayback": true }]
+],
     "extra": {
       "router": {
         "asyncRoutes": {
