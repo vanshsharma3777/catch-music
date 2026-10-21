@@ -17,7 +17,7 @@ import {
   sameSong,
 } from "../lib/songHelpers";
 import { addRecentSong, hydrateRecent } from "../lib/recentSongs";
-
+import { ensureOfflineLoaded, getOfflineUri } from "../lib/offlineStore";
 export type RepeatMode = "off" | "all" | "one";
 
 type PlayerContextType = {
@@ -99,6 +99,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     void hydrateRecent();
+    void ensureOfflineLoaded();
     setAudioModeAsync({
       playsInSilentMode: true,
       shouldPlayInBackground: true,
@@ -135,7 +136,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const startTrack = useCallback(
     (song: Song, list?: Song[]) => {
       const player = playerRef.current;
-      const url = getAudioUrl(song);
+      const url = getOfflineUri(song.id) ?? getAudioUrl(song);
       if (!player || !url) return;
 
       player.replace({ uri: url });

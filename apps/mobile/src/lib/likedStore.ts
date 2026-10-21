@@ -3,6 +3,8 @@ import { api } from "./api";
 import type { Song } from "../types/song";
 
 let ids = new Set<string>();
+let loaded = false;
+let loading: Promise<void> | null = null;
 const subs = new Set<() => void>();
 
 const emit = () => {
@@ -16,16 +18,34 @@ const subscribe = (fn: () => void) => {
   };
 };
 
+/** Loads every liked id once (the home screen's syncLikes also marks it loaded). */
+export function ensureLikesLoaded(): Promise<void> {
+  if (loaded) return Promise.resolve();
+  loading ??= api<{ likedSongIds?: string[] }>("/api/likes?limit=1")
+    .then((d) => {
+      ids = new Set((d.likedSongIds ?? []).map(String));
+      loaded = true;
+      emit();
+    })
+    .catch(() => {})
+    .finally(() => {
+      loading = null;
+    });
+  return loading;
+}
+
 /** Loads all liked ids + the latest liked songs. */
 export async function syncLikes(limit = 12): Promise<Song[]> {
   const d = await api<{ likedSongs: Song[]; likedSongIds: string[] }>(`/api/likes?limit=${limit}`);
   ids = new Set((d.likedSongIds ?? []).map(String));
+  loaded = true;
   emit();
   return d.likedSongs ?? [];
 }
 
 export function resetLikes() {
   ids = new Set();
+  loaded = false;
   emit();
 }
 
@@ -46,7 +66,6 @@ function mark(id: string, liked: boolean) {
   emit();
 }
 
-/** Optimistic toggle. Reverts and throws if the API fails. */
 export async function toggleLike(song: Song): Promise<boolean> {
   const id = String(song.id);
   const next = !ids.has(id);

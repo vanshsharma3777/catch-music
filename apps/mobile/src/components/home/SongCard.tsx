@@ -5,6 +5,7 @@ import { usePlayer } from "../../providers/PlayerProvider";
 import { getArtistName, getSongImage, getSongTitle, sameSong } from "../../lib/songHelpers";
 import type { Song } from "../../types/song";
 import { Cover } from "../ui/Cover";
+import { SongMenu } from "../ui/SongMenu";
 
 export function SongCard({ song, list, size = 148 }: { song: Song; list: Song[]; size?: number }) {
   const { currentSong, isPlaying, playSong } = usePlayer();
@@ -17,6 +18,9 @@ export function SongCard({ song, list, size = 148 }: { song: Song; list: Song[];
     >
       <View style={[styles.coverWrap, { width: size, height: size }, active && styles.coverActive]}>
         <Cover uri={getSongImage(song, "full")} style={{ width: size, height: size }} iconSize={36} />
+
+        <SongMenu song={song} iconSize={16} iconColor="#fff" style={styles.menu} />
+
         {active && (
           <View style={styles.badge}>
             <Ionicons name={isPlaying ? "pause" : "play"} size={14} color="#000" />
@@ -39,6 +43,10 @@ const styles = StyleSheet.create({
     shadowColor: "#000", shadowOpacity: 0.6, shadowRadius: 12, shadowOffset: { width: 0, height: 8 },
   },
   coverActive: { borderColor: colors.primary },
+  menu: {
+    position: "absolute", top: 6, right: 6, borderRadius: 15, overflow: "hidden",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
   badge: {
     position: "absolute", right: 8, bottom: 8, width: 28, height: 28, borderRadius: 14,
     backgroundColor: colors.accent, alignItems: "center", justifyContent: "center",

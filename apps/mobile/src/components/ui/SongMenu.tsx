@@ -6,21 +6,20 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import { colors } from "../../constants/theme";
-import {
-  addSongToPlaylist, createPlaylist, ensureLikesLoaded, fetchMyPlaylists, toggleLike, useIsLiked,
-  type PlaylistLite,
-} from "../../lib/libraryApi";
-import { ensureOfflineLoaded, toggleOffline, useIsCached } from "../../lib/offlineStore";
+import { ensureLikesLoaded, toggleLike, useIsLiked } from "../../lib/likedStore";
+import { addSongToPlaylist, createPlaylist, fetchMyPlaylists, type PlaylistLite } from "../../lib/libraryApi";
+import { ensureOfflineLoaded, toggleOffline, useIsCached, useIsDownloading } from "../../lib/offlineStore";
+import type { Song } from "../../types/song";
 
 const PANEL_W = 236;
 
 type Anchor = { x: number; y: number; w: number; h: number };
-type View_ = "main" | "playlists" | "create";
+type PanelView = "main" | "playlists" | "create";
 type Ico = React.ComponentProps<typeof Ionicons>["name"];
 
 export type SongMenuProps = {
-  song: any;
-  /** Sirf playlist screen me: "Remove from this playlist" dikhane ke liye */
+  song: Song;
+  /** Only on the playlist screen: shows "Remove from this playlist". */
   onRemoveFromPlaylist?: () => Promise<void> | void;
   onLikeChange?: (liked: boolean) => void;
   iconSize?: number;
@@ -48,7 +47,7 @@ function Item({
       style={({ pressed }) => [
         styles.item,
         pressed && { backgroundColor: "rgba(255,255,255,0.08)" },
-        (disabled || loading) && { opacity: 0.5 },
+        (disabled || loading) && { opacity: 0.55 },
       ]}
     >
       {loading ? <ActivityIndicator size="small" color={colors.accent} /> : <Ionicons name={icon} size={18} color={tint} />}
@@ -58,6 +57,9 @@ function Item({
   );
 }
 
+const errMsg = (e: unknown, fallback: string) =>
+  e instanceof Error && e.message ? e.message : fallback;
+
 export function SongMenu({
   song, onRemoveFromPlaylist, onLikeChange, iconSize = 20, iconColor = colors.sec, style,
 }: SongMenuProps) {
@@ -65,17 +67,18 @@ export function SongMenu({
   const btnRef = useRef<ElementRef<typeof View>>(null);
 
   const [anchor, setAnchor] = useState<Anchor | null>(null);
-  const [view, setView] = useState<View_>("main");
+  const [view, setView] = useState<PanelView>("main");
   const [busy, setBusy] = useState<string | null>(null);
   const [status, setStatus] = useState<{ text: string; error?: boolean } | null>(null);
   const [playlists, setPlaylists] = useState<PlaylistLite[] | null>(null);
   const [newName, setNewName] = useState("");
   const [newPublic, setNewPublic] = useState(false);
 
-  const liked = useIsLiked(song?.id);
+  const liked = useIsLiked(song?.id ?? "");
   const cached = useIsCached(song?.id);
+  const downloading = useIsDownloading(song?.id);
 
-  const url: string | undefined = song?.url;
+  const url = song?.url;
   const canLink = typeof url === "string" && /^https?:\/\//i.test(url);
 
   const close = () => {
@@ -101,7 +104,6 @@ export function SongMenu({
     setStatus({ text, error });
     if (closeAfter) setTimeout(close, 900);
   };
-  const errMsg = (e: any, fallback: string) => (e?.message && typeof e.message === "string" ? e.message : fallback);
 
   /* ---------- actions ---------- */
   const handleLike = async () => {
@@ -110,22 +112,21 @@ export function SongMenu({
       const next = await toggleLike(song);
       onLikeChange?.(next);
       flash(next ? "Added to liked songs" : "Removed from liked songs", false, true);
-    } catch {
-      flash("Couldn't update liked songs", true);
+    } catch (e) {
+      flash(errMsg(e, "Couldn't update liked songs"), true);
     } finally {
       setBusy(null);
     }
   };
 
   const handleCache = async () => {
-    setBusy("cache");
+    if (downloading) return;
+    if (!cached) flash("Downloading…");
     try {
       const now = await toggleOffline(song);
       flash(now ? "Saved for offline" : "Removed from offline", false, true);
     } catch (e) {
       flash(errMsg(e, "Couldn't save offline"), true);
-    } finally {
-      setBusy(null);
     }
   };
 
@@ -143,8 +144,8 @@ export function SongMenu({
     try {
       await onRemoveFromPlaylist?.();
       close();
-    } catch {
-      flash("Couldn't remove song", true);
+    } catch (e) {
+      flash(errMsg(e, "Couldn't remove song"), true);
     } finally {
       setBusy(null);
     }
@@ -183,16 +184,16 @@ export function SongMenu({
 
   const handleCreate = async () => {
     const name = newName.trim();
-    if (!name) return flash("Playlist ka naam likho", true);
+    if (!name) return flash("Give your playlist a name", true);
     setBusy("create");
     try {
       const created = await createPlaylist(name, newPublic);
-      setPlaylists(null); // next time dobara fetch hoga
+      setPlaylists(null); // refetch next time
       try {
         const r = await addSongToPlaylist(created.id, song);
-        flash(r === "added" ? `Created "${created.name}" & song added` : `Created "${created.name}"`, false, true);
-      } catch (e) {
-        flash(`Created "${created.name}", par song add nahi hua`, true);
+        flash(r === "added" ? `Created "${created.name}" and added the song` : `Created "${created.name}"`, false, true);
+      } catch {
+        flash(`Created "${created.name}", but the song wasn't added`, true);
       }
     } catch (e) {
       flash(errMsg(e, "Couldn't create playlist"), true);
@@ -206,12 +207,11 @@ export function SongMenu({
   if (anchor) {
     const left = Math.min(Math.max(8, anchor.x + anchor.w - PANEL_W), width - PANEL_W - 8);
     if (view === "create") {
-      // keyboard ke liye upar rakho
       panelPos = { left: Math.max(8, (width - PANEL_W) / 2), top: Math.max(60, height * 0.18) };
     } else if (anchor.y > height / 2) {
-      panelPos = { left, bottom: height - anchor.y + 6 }; // drop-up
+      panelPos = { left, bottom: height - anchor.y + 6 };
     } else {
-      panelPos = { left, top: anchor.y + anchor.h + 6 }; // drop-down
+      panelPos = { left, top: anchor.y + anchor.h + 6 };
     }
   }
 
@@ -238,9 +238,9 @@ export function SongMenu({
                 />
                 <Item
                   icon={cached ? "bookmark" : "bookmark-outline"}
-                  label={cached ? "Remove from offline" : "Save offline"}
+                  label={downloading ? "Downloading…" : cached ? "Remove from offline" : "Save offline"}
                   onPress={handleCache}
-                  loading={busy === "cache"}
+                  loading={downloading}
                 />
                 {canLink && <Item icon="link-outline" label="Copy link" onPress={copyLink} />}
                 {onRemoveFromPlaylist && (
@@ -265,7 +265,7 @@ export function SongMenu({
                     <ActivityIndicator color={colors.accent} />
                   </View>
                 ) : playlists.length === 0 ? (
-                  <Text style={styles.empty}>Abhi koi playlist nahi hai. "New playlist" se banao.</Text>
+                  <Text style={styles.empty}>No playlists yet. Tap “New playlist” to create one.</Text>
                 ) : (
                   <ScrollView showsVerticalScrollIndicator={false}>
                     {playlists.map((pl) => (
