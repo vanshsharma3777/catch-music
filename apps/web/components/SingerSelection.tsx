@@ -11,7 +11,9 @@ import SingerCard from "./SingerCard";
 export default function SingerSelection() {
   const router = useRouter();
   const { data: session, status } = useSession();
-  const ITEMS_PER_PAGE = 12;
+ const ITEMS_PER_PAGE = 12;
+const MIN_SELECTION = 3;
+const MAX_SELECTION = 6;
 
   const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -23,14 +25,12 @@ export default function SingerSelection() {
 
   const categories = ["Hindi", "English", "Haryanvi", "Bhojpuri"];
 
-  // Redirect to sign in if not logged in
   useEffect(() => {
     if (status === "unauthenticated") {
       router.replace("/signin");
     }
   }, [status, router]);
 
-  // Load existing preferences if available
   useEffect(() => {
     const stored = localStorage.getItem("catchmusic_preferences");
     if (stored) {
@@ -45,7 +45,6 @@ export default function SingerSelection() {
     }
   }, []);
 
-  // Filter and sort singers
   const filteredSingers = SINGER_DATABASE.filter((singer) => {
     const matchesCategory = selectedCategory
       ? singer.categories.includes(selectedCategory)
@@ -81,7 +80,7 @@ export default function SingerSelection() {
     setSelectedIds((prev) =>
       prev.includes(id)
         ? prev.filter((item) => item !== id)
-        : prev.length < 3
+        : prev.length < MAX_SELECTION
         ? [...prev, id]
         : prev
     );
@@ -94,7 +93,8 @@ export default function SingerSelection() {
   };
 
   const handleSubmit = async () => {
-    if (selectedIds.length !== 3) return;
+      if (selectedIds.length < MIN_SELECTION || selectedIds.length > MAX_SELECTION) return;
+
     setIsSubmitting(true);
 
     const selectedSingers = SINGER_DATABASE.filter((s) =>
@@ -128,49 +128,89 @@ export default function SingerSelection() {
       setSortDirection("desc");
     }
   };
-
+const isValid =
+  selectedIds.length >= MIN_SELECTION && selectedIds.length <= MAX_SELECTION;
+const isMaxReached = selectedIds.length >= MAX_SELECTION;
+const remainingToMin = Math.max(0, MIN_SELECTION - selectedIds.length);
   return (
     <div className="relative min-h-screen bg-bg text-pri px-4 sm:px-8 lg:px-16 py-10 flex items-center justify-center">
-      {/* Background Glow Overlay */}
+     
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--glow-gold),transparent_70%)] pointer-events-none opacity-30" />
 
-      {/* Broader Parent Card (max-w-7xl) */}
       <main className="w-full max-w-7xl rounded-3xl border border-border-light bg-gradient-to-b from-surface to-card p-6 sm:p-10 lg:p-12 shadow-2xl relative z-10 space-y-8 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-tr from-accent/5 to-transparent opacity-30 pointer-events-none" />
 
-        {/* Header Section */}
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border pb-8">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface px-3.5 py-1 shadow-sm">
-              <Music4 size={12} className="text-accent" />
-              <span className="text-[10px] font-semibold tracking-widest text-muted uppercase">
-                Onboarding Setup
-              </span>
-            </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-pri">
-              Choose Your Top <span className="text-accent">3 Artists</span>
-            </h1>
-            <p className="text-sm text-sec max-w-xl">
-              Select 3 favorite singers to calibrate your personalized music discovery engine.
-            </p>
-          </div>
+  <div className="space-y-3">
+    <div className="inline-flex items-center gap-2 rounded-full border border-border-light bg-surface px-3.5 py-1 shadow-sm">
+      <Music4 size={12} className="text-accent" />
+      <span className="text-[10px] font-semibold tracking-widest text-muted uppercase">
+        Onboarding Setup
+      </span>
+    </div>
 
-          <div className="shrink-0 flex items-center gap-3 bg-bg-ter border border-border-light px-6 py-3.5 rounded-2xl h-max self-start md:self-center shadow-sm">
-            <span className="text-xs font-bold text-muted tracking-wider uppercase">
-              Selected
-            </span>
-            <div className="text-2xl font-black tracking-tight text-accent">
-              {selectedIds.length}{" "}
-              <span className="text-muted font-normal text-base">/ 3</span>
-            </div>
-          </div>
-        </div>
+    <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-pri">
+      Choose Your Favorite <span className="text-accent">Artists</span>
+    </h1>
 
-        {/* Search, Category Filters, and Sort Controls */}
+    <p className="text-sm text-sec max-w-xl">
+      Select your favorite singers to calibrate your personalized music discovery engine.
+    </p>
+
+    {/* Rule hint */}
+    <div className="inline-flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 px-4 py-2 shadow-sm">
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+      </span>
+      <p className="text-xs sm:text-sm text-sec">
+        Pick <span className="font-bold text-accent">at least {MIN_SELECTION}</span> and{" "}
+        <span className="font-bold text-accent">at most {MAX_SELECTION}</span> artists
+      </p>
+    </div>
+  </div>
+
+  {/* Counter + progress */}
+  <div className="shrink-0 bg-bg-ter border border-border-light px-6 py-4 rounded-2xl h-max self-start md:self-center shadow-sm min-w-[200px] space-y-3">
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-xs font-bold text-muted tracking-wider uppercase">
+        Selected
+      </span>
+      <div className="text-2xl font-black tracking-tight text-accent">
+        {selectedIds.length}{" "}
+        <span className="text-muted font-normal text-base">/ {MAX_SELECTION}</span>
+      </div>
+    </div>
+
+    {/* Segmented progress: first 3 are "required", last 3 are "optional" */}
+    <div className="flex gap-1.5">
+      {Array.from({ length: MAX_SELECTION }).map((_, i) => (
+        <div
+          key={i}
+          className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+            i < selectedIds.length
+              ? "bg-accent"
+              : i < MIN_SELECTION
+              ? "bg-accent/25"
+              : "bg-border-light"
+          }`}
+        />
+      ))}
+    </div>
+
+    <p className="text-[11px] text-muted">
+      {remainingToMin > 0
+        ? `Select ${remainingToMin} more to continue`
+        : isMaxReached
+        ? "Maximum reached"
+        : "You're good to go. Add more if you like"}
+    </p>
+  </div>
+</div>
+
         <div className="relative z-10 space-y-5 pb-6 border-b border-border">
           <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-            {/* Search Bar */}
-            <div className="relative w-full md:w-80">
+               <div className="relative w-full md:w-80">
               <Search
                 size={16}
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
@@ -193,7 +233,6 @@ export default function SingerSelection() {
               )}
             </div>
 
-            {/* Sort Controls */}
             <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
               <span className="text-xs font-semibold text-muted uppercase">
                 Sort:
@@ -224,8 +263,6 @@ export default function SingerSelection() {
               </div>
             </div>
           </div>
-
-          {/* Category Filter Pills */}
           <div className="flex items-center gap-2 flex-wrap pt-1">
             <span className="text-xs font-semibold text-muted uppercase mr-1">
               Genres:
@@ -262,27 +299,24 @@ export default function SingerSelection() {
           </div>
         </div>
 
-        {/* Results Info */}
         <div className="relative z-10 text-xs text-sec">
           Showing <span className="font-bold text-pri">{filteredSingers.length}</span>{" "}
           {filteredSingers.length === 1 ? "artist" : "artists"}
           {selectedCategory && ` in ${selectedCategory}`}
         </div>
 
-        {/* Spotify-Style Grid Layout (2 to 4 columns) */}
         <div className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
           {displayedSingers.map((singer) => (
             <SingerCard
-              key={singer.id}
-              singer={singer}
-              isSelected={selectedIds.includes(singer.id)}
-              disabled={selectedIds.length >= 3}
-              onToggle={handleToggle}
-            />
+  key={singer.id}
+  singer={singer}
+  isSelected={selectedIds.includes(singer.id)}
+  disabled={isMaxReached}
+  onToggle={handleToggle}
+/>
           ))}
         </div>
 
-        {/* Empty State */}
         {filteredSingers.length === 0 && (
           <div className="relative z-10 text-center py-16 space-y-3">
             <Music4 size={48} className="mx-auto text-muted/40 animate-pulse" />
@@ -292,8 +326,6 @@ export default function SingerSelection() {
             </p>
           </div>
         )}
-
-        {/* Footer Actions */}
         {filteredSingers.length > 0 && (
           <div className="relative z-10 flex flex-col items-center justify-center gap-6 pt-6 border-t border-border">
             {hasMore && (
@@ -311,16 +343,20 @@ export default function SingerSelection() {
             )}
 
             <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={selectedIds.length !== 3 || isSubmitting}
-              className="w-full sm:w-auto min-w-[240px] inline-flex items-center justify-center gap-2 rounded-xl bg-accent hover:bg-accent-hover text-bg font-bold text-sm tracking-wide shadow-lg transition-all duration-300 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] cursor-pointer py-3.5 px-8"
-            >
-              <span>
-                {isSubmitting ? "Finalizing Engine..." : "Complete Setup"}
-              </span>
-              {!isSubmitting && <ArrowRight size={16} strokeWidth={2.5} />}
-            </button>
+  type="button"
+  onClick={handleSubmit}
+  disabled={!isValid || isSubmitting}
+  className="w-full sm:w-auto min-w-[240px] inline-flex items-center justify-center gap-2 rounded-xl bg-accent hover:bg-accent-hover text-bg font-bold text-sm tracking-wide shadow-lg transition-all duration-300 disabled:opacity-40 disabled:pointer-events-none active:scale-[0.98] cursor-pointer py-3.5 px-8"
+>
+  <span>
+    {isSubmitting
+      ? "Finalizing Engine..."
+      : isValid
+      ? `Complete Setup (${selectedIds.length})`
+      : `Select ${remainingToMin} more`}
+  </span>
+  {!isSubmitting && isValid && <ArrowRight size={16} strokeWidth={2.5} />}
+</button>
           </div>
         )}
       </main>
