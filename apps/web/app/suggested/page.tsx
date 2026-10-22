@@ -15,11 +15,9 @@ import { getCachedSongIds, toggleCacheSong } from "../lib/cacheDb";
 import { checkStorageQuota } from "../lib/estimateStorage";
 import { getSingerSongsPage } from "../lib/singerSongClient";
 
-// Cards revealed per "See more" click (divisible by 2, 3 and 6 so grid rows stay full)
 const STEP = 18;
-// Keep at least this many fetched-but-hidden songs in reserve. When the reserve
-// drops below it, the next pages are fetched in the background.
 const MIN_BUFFER = STEP;
+const MAX_RANDOM_PAGE = 5;
 
 const shuffle = <T,>(arr: T[]): T[] => {
   const a = [...arr];
@@ -30,18 +28,60 @@ const shuffle = <T,>(arr: T[]): T[] => {
   return a;
 };
 
+type Pool = {
+  remaining: number[]; 
+  nextSeq: number; 
+  limit: number
+  queue: Song[]; 
+};
+
+const newPool = (random: boolean): Pool => ({
+  remaining: random
+    ? shuffle(Array.from({ length: MAX_RANDOM_PAGE }, (_, i) => i + 1))
+    : [],
+  nextSeq: random ? MAX_RANDOM_PAGE + 1 : 1,
+  limit: Infinity,
+  queue: [],
+});
+
+const hasPages = (p: Pool) =>
+  p.remaining.some((n) => n <= p.limit) || p.nextSeq <= p.limit;
+
+const nextPage = (p: Pool): number | null => {
+  while (p.remaining.length) {
+    const n = p.remaining.shift()!;
+    if (n <= p.limit) return n;
+  }
+  return p.nextSeq <= p.limit ? p.nextSeq++ : null;
+};
+
+const fetchRandomPage = async (name: string, pool: Pool) => {
+  for (let tries = 0; tries < MAX_RANDOM_PAGE; tries++) {
+    const page = nextPage(pool);
+    if (page === null) return;
+
+    const { songs, hasMore } = await getSingerSongsPage(name, page);
+    if (!hasMore) pool.limit = Math.min(pool.limit, page);
+
+    if (songs && songs.length > 0) {
+      pool.queue.push(...shuffle(songs));
+      return;
+    }
+    pool.limit = Math.min(pool.limit, page - 1);
+  }
+};
+
 export default function SuggestedPage() {
   const router = useRouter();
   const { status: authStatus } = useSession();
   const player = usePlayer();
 
   const [singers, setSingers] = useState<Singer[]>([]);
-  // Set when opened as /suggested?singer=Name (e.g. from search): show only that singer
   const [singerParam, setSingerParam] = useState<string | null>(null);
   const [songs, setSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isFetching, setIsFetching] = useState(false); // background fetch running
-  const [fetchFailed, setFetchFailed] = useState(false); // pauses auto-prefetch until next click
+  const [isFetching, setIsFetching] = useState(false);
+  const [fetchFailed, setFetchFailed] = useState(false); 
   const [hasMoreRemote, setHasMoreRemote] = useState(false);
   const [visibleCount, setVisibleCount] = useState(STEP);
 
@@ -49,18 +89,15 @@ export default function SuggestedPage() {
   const [cachingIds, setCachingIds] = useState<Set<string>>(new Set());
   const [isCachingAny, setIsCachingAny] = useState(false);
 
-  // Per-singer paging state. `queue` = fetched but not yet mixed into the list.
-  const pools = useRef(new Map<string, { page: number; queue: Song[]; hasMore: boolean }>());
+  const pools = useRef(new Map<string, Pool>());
   const seenIds = useRef(new Set<string>());
-  const loadToken = useRef(0); // ignores results from a stale/duplicate initial load
+  const loadToken = useRef(0); 
   const singersRef = useRef<Singer[]>([]);
-  const totalRef = useRef(0); // songs fetched so far (shown + reserve)
-  const visibleRef = useRef(STEP); // songs currently revealed
-  const fetchingRef = useRef(false); // lock: only one background fetch at a time
-  const searchModeRef = useRef(false); // true when opened as /suggested?singer=<what the user searched>
+  const totalRef = useRef(0); 
+  const visibleRef = useRef(STEP); 
+  const fetchingRef = useRef(false); 
+  const searchModeRef = useRef(false); 
 
-  // In search mode the client labels every song with the searched text, which is
-  // wrong for songs by other artists. Put the real artist names back.
   const withRealArtist = (song: Song): Song => {
     const names =
       (song as any).artists?.primary?.map((a: any) => a.name).join(", ") ||
@@ -68,8 +105,6 @@ export default function SuggestedPage() {
     return names ? { ...song, artistName: names } : song;
   };
 
-  // Interleave everything waiting in the queues, round-robin, with the singer
-  // order re-randomised every round. Results are appended, never reshuffled.
   const drainQueues = (list: Singer[]): Song[] => {
     const out: Song[] = [];
     let progressed = true;
@@ -102,12 +137,13 @@ export default function SuggestedPage() {
 
     await Promise.all(
       list.map(async (singer) => {
+        // Search mode keeps normal order; favourites mode is random
+        const pool = newPool(!searchModeRef.current);
+        pools.current.set(singer.id, pool);
         try {
-          const { songs: page, hasMore } = await getSingerSongsPage(singer.name, 1);
-          pools.current.set(singer.id, { page: 1, queue: [...page], hasMore });
+          await fetchRandomPage(singer.name, pool);
         } catch (err) {
           console.error(`Failed to load ${singer.name}:`, err);
-          pools.current.set(singer.id, { page: 1, queue: [], hasMore: false });
         }
       })
     );
@@ -117,7 +153,7 @@ export default function SuggestedPage() {
     const first = drainQueues(list);
     totalRef.current = first.length;
     setSongs(first);
-    setHasMoreRemote([...pools.current.values()].some((p) => p.hasMore));
+    setHasMoreRemote([...pools.current.values()].some(hasPages));
     setIsLoading(false);
   };
 
@@ -184,7 +220,7 @@ export default function SuggestedPage() {
   }, []);
 
   // Background fetch: keeps MIN_BUFFER songs in reserve beyond what is revealed.
-  // One page per singer per round, in parallel, mixed randomly and appended.
+  // One random page per singer per round, in parallel, mixed randomly and appended.
   const ensureBuffer = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
@@ -198,7 +234,10 @@ export default function SuggestedPage() {
         round++
       ) {
         const list = singersRef.current;
-        const active = list.filter((s) => pools.current.get(s.id)?.hasMore);
+        const active = list.filter((s) => {
+          const p = pools.current.get(s.id);
+          return p && hasPages(p);
+        });
         if (active.length === 0) break;
 
         let failed = 0;
@@ -206,10 +245,7 @@ export default function SuggestedPage() {
           active.map(async (singer) => {
             const pool = pools.current.get(singer.id)!;
             try {
-              const { songs: page, hasMore } = await getSingerSongsPage(singer.name, pool.page + 1);
-              pool.page += 1;
-              pool.hasMore = hasMore;
-              pool.queue.push(...page);
+              await fetchRandomPage(singer.name, pool);
             } catch (err) {
               failed++;
               console.error(`Load more failed for ${singer.name}:`, err);
@@ -230,7 +266,7 @@ export default function SuggestedPage() {
       }
 
       if (token === loadToken.current) {
-        setHasMoreRemote([...pools.current.values()].some((p) => p.hasMore));
+        setHasMoreRemote([...pools.current.values()].some(hasPages));
       }
     } finally {
       fetchingRef.current = false;
@@ -345,7 +381,7 @@ export default function SuggestedPage() {
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent/15 text-accent shadow-[0_8px_24px_-10px_var(--accent)]">
             <Sparkles size={20} />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="text-balance text-2xl font-extrabold capitalize tracking-tight sm:text-4xl">
               {singerParam ? `${singerParam} songs` : "Suggested for you"}
             </h1>
@@ -353,10 +389,24 @@ export default function SuggestedPage() {
               <p className="truncate text-xs text-sec sm:text-sm">
                 {singerParam
                   ? "More songs matching your search"
-                  : `A mix of ${singers.map((s) => s.name).join(", ")}`}
+                  : `A random mix of ${singers.map((s) => s.name).join(", ")}`}
               </p>
             )}
           </div>
+
+          {!singerParam && (
+            <button
+              onClick={() => loadFirstPage(singers)}
+              disabled={isLoading}
+              className={`${pill} shrink-0 disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              <RefreshCw
+                size={14}
+                className={`text-accent ${isLoading ? "animate-spin" : ""}`}
+              />
+              Shuffle
+            </button>
+          )}
         </div>
 
         {/* Songs */}

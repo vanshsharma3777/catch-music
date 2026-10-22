@@ -216,7 +216,7 @@ useEffect(() => {
           </View>
         </View>
 
-        <SearchBar value={query} onChangeText={setQuery} onSubmit={commit} busy={s.loading || s.pending} autoFocus />
+        <SearchBar value={query} onChangeText={setQuery} onSubmit={commit} busy={s.loading || s.pending}  />
       </View>
 
       <View style={styles.tabsWrap}>

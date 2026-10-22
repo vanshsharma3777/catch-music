@@ -41,6 +41,48 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 const HOME_COUNT = 18;
+const MAX_RANDOM_PAGE = 5; 
+
+
+const SUGGESTIONS_CACHE_KEY = "catchmusic_suggestions_v1";
+type SuggestionsCache = {
+  signature: string; 
+  songs: Song[];
+};
+
+const singersSignature = (singers: Singer[]) =>
+  singers
+    .map((s) => String(s.id))
+    .sort()
+    .join("|");
+
+const readSuggestionsCache = (singers: Singer[]): Song[] | null => {
+  try {
+    const raw = sessionStorage.getItem(SUGGESTIONS_CACHE_KEY);
+    if (!raw) return null;
+
+    const cache = JSON.parse(raw) as SuggestionsCache;
+    if (!cache || !Array.isArray(cache.songs) || cache.songs.length === 0) return null;
+    if (cache.signature !== singersSignature(singers)) return null; 
+
+    return cache.songs;
+  } catch {
+    return null;
+  }
+};
+
+
+const writeSuggestionsCache = (singers: Singer[], songs: Song[]) => {
+  try {
+    const cache: SuggestionsCache = {
+      signature: singersSignature(singers),
+      songs,
+    };
+    sessionStorage.setItem(SUGGESTIONS_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    
+  }
+};
 
 const shuffle = <T,>(arr: T[]): T[] => {
   const a = [...arr];
@@ -333,9 +375,16 @@ export default function HomePage() {
           }
 
           setFavoriteSingers(singers);
-          setIsInitializing(false);
 
-          fetchSuggestions(singers);
+          // Use the saved suggestions if they are still valid, otherwise fetch new ones
+          const cachedSuggestions = readSuggestionsCache(singers);
+          if (cachedSuggestions) {
+            setSuggestedTracks(cachedSuggestions);
+          } else {
+            fetchSuggestions(singers);
+          }
+
+          setIsInitializing(false);
         } catch (err) {
           console.error("Failed to load user preferences:", err);
           setIsInitializing(false);
@@ -365,13 +414,22 @@ export default function HomePage() {
     loadLocalData();
   }, []);
 
+  // Fetches a fresh random mix and saves it. Called on first visit, when the
+  // saved mix expires / artists change, and when the user presses "Shuffle".
   const fetchSuggestions = async (singers: Singer[]) => {
     setIsLoadingSuggestions(true);
     try {
       const lists = await Promise.all(
         singers.map(async (singer) => {
+          const randomPage = Math.floor(Math.random() * MAX_RANDOM_PAGE) + 1;
           try {
-            return (await getSingerSongsPage(singer.name, 1)).songs;
+            let songs = (await getSingerSongsPage(singer.name, randomPage)).songs;
+
+            // Random page may be past the last page → fall back to page 1
+            if ((!songs || songs.length === 0) && randomPage !== 1) {
+              songs = (await getSingerSongsPage(singer.name, 1)).songs;
+            }
+            return shuffle(songs || []);
           } catch (err) {
             console.error(`Suggestions failed for ${singer.name}:`, err);
             return [] as Song[];
@@ -379,9 +437,10 @@ export default function HomePage() {
         })
       );
 
+      // Mix songs from all singers evenly, in random singer order
       const mixed: Song[] = [];
       const seen = new Set<string>();
-      for (let i = 0; i < HOME_COUNT && mixed.length < HOME_COUNT; i++) {
+      for (let i = 0; i < HOME_COUNT * 2 && mixed.length < HOME_COUNT; i++) {
         for (const idx of shuffle(lists.map((_, k) => k))) {
           const song = lists[idx]?.[i];
           if (song && song.id && !seen.has(String(song.id))) {
@@ -390,7 +449,14 @@ export default function HomePage() {
           }
         }
       }
-      setSuggestedTracks(mixed.slice(0, HOME_COUNT));
+
+      const finalSongs = shuffle(mixed).slice(0, HOME_COUNT);
+
+      // If every request failed, keep what is on screen and in the saved cache
+      if (finalSongs.length > 0) {
+        setSuggestedTracks(finalSongs);
+        writeSuggestionsCache(singers, finalSongs);
+      }
     } finally {
       setIsLoadingSuggestions(false);
     }
@@ -682,7 +748,6 @@ export default function HomePage() {
               )}
             </section>
 
-            {/* ---------------- Recently played ---------------- */}
             <section className="space-y-3">
               <SectionHeader
                 icon={<Clock size={20} />}
@@ -698,7 +763,7 @@ export default function HomePage() {
                 <div className="space-y-2 rounded-3xl bg-white/[0.04] p-10 text-center backdrop-blur-xl">
                   <Music2 size={32} className="mx-auto text-accent/80" />
                   <h3 className="text-sm font-bold text-pri">Nothing played yet</h3>
-                  <p className="mx-auto max-w-sm text-xs text-sec">
+                  <p className="mx-auto max-w-sm text-xs text-sec"> 
                     Play any song below and it will show up here for quick access.
                   </p>
                 </div>
@@ -741,11 +806,19 @@ export default function HomePage() {
               <SectionHeader
                 icon={<Sparkles size={20} />}
                 title="Suggested for you"
-                subtitle={`Based on ${favoriteSingers.map((s) => s.name).join(", ")}`}
+                subtitle="Random picks from your favorite artists"
                 right={
-                  isLoadingSuggestions ? (
-                    <RefreshCw size={16} className="animate-spin text-accent" />
-                  ) : undefined
+                  <button
+                    onClick={() => fetchSuggestions(favoriteSingers)}
+                    disabled={isLoadingSuggestions}
+                    className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/[0.06] px-3.5 py-2 text-xs font-semibold text-pri backdrop-blur-xl transition hover:bg-white/[0.12] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCw
+                      size={14}
+                      className={`text-accent ${isLoadingSuggestions ? "animate-spin" : ""}`}
+                    />
+                    Shuffle
+                  </button>
                 }
               />
 
@@ -782,7 +855,6 @@ export default function HomePage() {
               )}
             </section>
 
-            {/* ---------------- Artists ---------------- */}
             <section className="space-y-4">
               <SectionHeader icon={<User size={20} />} title="Your artists" />
 

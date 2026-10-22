@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Check, Heart, Music4 } from "lucide-react";
 import { Singer } from "../app/lib/singersDB";
 
-// Shown when a singer has no photo, or the photo URL fails to load
 const DEFAULT_SINGER_IMAGE = "/boy2.png";
 
 interface SingerCardProps {
@@ -48,7 +47,7 @@ export default function SingerCard({
           : "border-border-light bg-gradient-to-b from-surface to-card hover:border-accent/40 cursor-pointer hover:bg-surface/80 hover:scale-[1.03] hover:shadow-xl"
       }`}
     >
-      {/* Spotify-Style Circular Avatar Container */}
+     
       <div className="relative mb-3.5 ">
         <div className="h-28 w-28 sm:h-36 sm:w-36 rounded-full overflow-hidden border-2 border-border-light bg-bg-ter shadow-md group-hover:border-accent/60 transition-colors duration-300">
           <img
@@ -61,7 +60,6 @@ export default function SingerCard({
           />
         </div>
 
-        {/* Selection Checkmark Badge on Top-Right of Avatar */}
         <div
           className={`absolute top-0 right-0 h-7 w-7 rounded-full border-2 border-bg flex items-center justify-center transition-all duration-300 shadow-md ${
             isSelected
@@ -72,20 +70,16 @@ export default function SingerCard({
           <Check size={14} strokeWidth={3} />
         </div>
 
-        {/* Rating Badge Overlay */}
         <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-bg/90 backdrop-blur-md border border-border-light rounded-full px-2.5 py-0.5 text-[11px] font-bold text-accent shadow-sm">
           <Music4 size={10} />
           {singer.rating.toFixed(1)}
         </div>
       </div>
 
-      {/* Artist Information */}
       <div className="w-full space-y-1.5 pt-1">
         <h3 className="font-extrabold text-sm sm:text-base text-pri truncate group-hover:text-accent transition-colors">
           {singer.name}
         </h3>
-
-        {/* Category Tags */}
         <div className="flex flex-wrap justify-center items-center gap-1">
           {singer.categories.map((cat, idx) => (
             <span
@@ -97,7 +91,6 @@ export default function SingerCard({
           ))}
         </div>
 
-        {/* Followers & Sub-genre */}
         <div className="flex items-center justify-center gap-1.5 text-xs text-muted pt-1">
           <Heart size={11} className="text-accent fill-accent/20 shrink-0" />
           <span className="font-semibold text-sec text-[11px]">

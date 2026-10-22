@@ -33,6 +33,16 @@ export const SINGER_DATABASE: Singer[] = [
     ordinal: 2,
   },
   {
+    id: "56",
+    name: "Darshan ravel",
+    categories: ["Hindi"],
+    followers: 18000000,
+    rating: 4.5,
+    image:"https://tse4.mm.bing.net/th/id/OIP.AdupLjIPmWWH65DLmRPgqgHaJQ?r=0&rs=1&pid=ImgDetMain&o=7&rm=3",
+    genre: "Bollywood",
+    ordinal: 2,
+  },
+  {
     id: "3",
     name: "Shreya Ghoshal",
     categories: ["Hindi"],
