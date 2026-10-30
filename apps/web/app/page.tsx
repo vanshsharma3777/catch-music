@@ -375,7 +375,7 @@ export default function HomePage() {
           }
 
           setFavoriteSingers(singers);
-
+          console.log("singers" , singers)
           // Use the saved suggestions if they are still valid, otherwise fetch new ones
           const cachedSuggestions = readSuggestionsCache(singers);
           if (cachedSuggestions) {
@@ -414,8 +414,6 @@ export default function HomePage() {
     loadLocalData();
   }, []);
 
-  // Fetches a fresh random mix and saves it. Called on first visit, when the
-  // saved mix expires / artists change, and when the user presses "Shuffle".
   const fetchSuggestions = async (singers: Singer[]) => {
     setIsLoadingSuggestions(true);
     try {
@@ -425,7 +423,6 @@ export default function HomePage() {
           try {
             let songs = (await getSingerSongsPage(singer.name, randomPage)).songs;
 
-            // Random page may be past the last page → fall back to page 1
             if ((!songs || songs.length === 0) && randomPage !== 1) {
               songs = (await getSingerSongsPage(singer.name, 1)).songs;
             }

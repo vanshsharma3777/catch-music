@@ -9,6 +9,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  vector,
 } from "drizzle-orm/pg-core";
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -293,3 +294,17 @@ export const feedback = pgTable(
     ),
   ]
 );
+
+export const songEmbeddings = pgTable("song_embeddings", {
+  id: uuid("id").defaultRandom().primaryKey(),
+
+  songId: text("song_id").notNull().unique(),
+
+  embedding: vector("embedding", {
+    dimensions: 384,
+  }).notNull(),
+
+  model: text("model").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});

@@ -18,7 +18,6 @@ const USER_AGENT =
   "CatchMusicSingerImageValidator/1.0 (personal project; image validation)";
 
 const singers = [
-  // Hindi singers and composers
   "Arijit Singh",
   "Pritam",
   "Shreya Ghoshal",
@@ -42,7 +41,6 @@ const singers = [
   "B Praak",
   "Asees Kaur",
 
-  // Indian rappers
   "Badshah",
   "Yo Yo Honey Singh",
   "KR$NA",
@@ -60,7 +58,6 @@ const singers = [
   "Paradox",
   "Yashraj",
 
-  // Haryanvi artists
   "Fazilpuria",
   "Masoom Sharma",
   "Amit Saini Rohtakiya",
@@ -69,7 +66,6 @@ const singers = [
   "Gulzaar Chhaniwala",
   "Khasa Aala Chahar",
 
-  // Bhojpuri singers
   "Khesari Lal Yadav",
   "Pawan Singh",
   "Manoj Tiwari",
@@ -82,7 +78,6 @@ const singers = [
   "Kalpana Patowary",
 ] as const;
 
-// Some display names differ from their Wikipedia article titles.
 const articleTitles: Record<string, string> = {
   KK: "Krishnakumar Kunnath",
   "KR$NA": "Krishna Kaul (rapper)",
@@ -121,9 +116,6 @@ function getRetryDelay(response: Response | null, attempt: number) {
   return Math.min(INITIAL_BACKOFF_MS * 2 ** attempt, 60_000);
 }
 
-/**
- * Performs a request with retries for rate limits and temporary server errors.
- */
 async function fetchWithRetry(
   url: string,
   init: RequestInit = {},
@@ -154,7 +146,6 @@ async function fetchWithRetry(
 
       const delay = getRetryDelay(response, attempt);
 
-      // Release the response body before retrying.
       await response.body?.cancel().catch(() => {});
 
       console.log(
@@ -195,22 +186,18 @@ async function fetchWithRetry(
   );
 }
 
-/**
- * Checks the image URL without downloading the complete image.
- */
 async function validateImageUrl(
   imageUrl: string,
 ): Promise<{ valid: boolean; reason?: string }> {
   let response: Response | null = null;
 
   try {
-    // HEAD is preferable because it avoids downloading the image.
+  
     response = await fetchWithRetry(imageUrl, {
       method: "HEAD",
       redirect: "follow",
     });
 
-    // Some image hosts don't support HEAD.
     if (
       response.status === 405 ||
       response.status === 403 ||
@@ -265,9 +252,6 @@ async function validateImageUrl(
   }
 }
 
-/**
- * Gets the singer's article image from the Wikipedia REST API.
- */
 async function getArticleImage(
   name: string,
 ): Promise<SingerResult> {
@@ -377,9 +361,6 @@ async function getArticleImage(
   };
 }
 
-/**
- * Main validation process.
- */
 async function main() {
   const results: SingerResult[] = [];
 
@@ -412,7 +393,6 @@ async function main() {
       }
     }
 
-    // Save after every singer so progress isn't lost if execution stops.
     await fs.writeFile(
       OUTPUT_FILE,
       JSON.stringify(results, null, 2),
@@ -436,13 +416,11 @@ async function main() {
     (result) => result.status === "RETRY",
   );
 
-  console.log("\n========== VALIDATION SUMMARY ==========");
   console.log(`Total singers: ${results.length}`);
   console.log(`Verified image URLs: ${verified.length}`);
   console.log(`Missing or invalid candidates: ${missing.length}`);
   console.log(`Need another attempt: ${retry.length}`);
   console.log(`Results saved to: ${OUTPUT_FILE}`);
-  console.log("=========================================\n");
 
   if (retry.length > 0) {
     console.log("Singers requiring another attempt:");

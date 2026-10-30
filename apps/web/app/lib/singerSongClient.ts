@@ -44,6 +44,7 @@ function fetchFromNetwork(name: string): Promise<Song[]> {
     .then((res) => {
       if (!res.data?.success || !Array.isArray(res.data.data)) return [];
       const songs: Song[] = res.data.data.map((s: Song) => ({ ...s, artistName: name }));
+      console.log("songs " , res.data)
       if (songs.length > 0) writeEntry(name, songs);
       return songs;
     })
@@ -123,7 +124,7 @@ export async function getSingerSongsPage(
       if (!res.data?.success || !Array.isArray(res.data.data)) {
         return { songs: [] as Song[], hasMore: false };
       }
-
+      console.log(res.data)
       const raw: Song[] = res.data.data;
       const seen = pageSeen.get(nameKey) ?? new Set<string>();
       const songs: Song[] = [];
