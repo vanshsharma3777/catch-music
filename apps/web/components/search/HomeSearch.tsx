@@ -13,6 +13,9 @@ import {
   RefreshCw,
   ChevronRight,
   CornerDownLeft,
+  Check,
+  ListPlus,
+  Shuffle,
 } from "lucide-react";
 import { usePlayer, formatAudioTime } from "../player/PlayerContext";
 import { Song } from "../../app/types/songs";
@@ -34,6 +37,7 @@ import {
 } from "../../app/lib/discoverClient";
 import SongMenu from "../SongMenu";
 import { useRouter } from "next/navigation";
+import SavePlaylistModal from "./SavePlaylistModal";
 
 const RECENT_KEY = "catchmusic_recent_searches";
 const PAGE_SIZE = 24;
@@ -103,9 +107,8 @@ function SuggestRow({
       aria-selected={selected}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onPick}
-      className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors ${
-        selected ? "bg-white/10" : "hover:bg-white/[0.06]"
-      }`}
+      className={`flex w-full items-center gap-3 px-4 py-2 text-left transition-colors ${selected ? "bg-white/10" : "hover:bg-white/[0.06]"
+        }`}
     >
       <CoverImage
         src={mini.image}
@@ -164,9 +167,8 @@ function SongRow({
       onClick={onPlay}
       onKeyDown={(e) => e.key === "Enter" && onPlay()}
       aria-label={`Play ${title}`}
-      className={`group flex cursor-pointer items-center gap-3 rounded-2xl px-2.5 py-2 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-accent ${
-        playing ? "bg-accent/10" : ""
-      }`}
+      className={`group flex cursor-pointer items-center gap-3 rounded-2xl px-2.5 py-2 transition-colors hover:bg-white/[0.07] focus-visible:outline-2 focus-visible:outline-accent ${playing ? "bg-accent/10" : ""
+        }`}
     >
       <span className="hidden w-5 text-center text-xs tabular-nums text-muted sm:block">
         {index + 1}
@@ -221,11 +223,10 @@ function SongRow({
                 ? "Saved offline"
                 : "Save offline"
           }
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${
-            isCached
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition ${isCached
               ? "bg-accent text-bg"
               : "text-sec hover:bg-white/10 hover:text-pri"
-          }`}
+            }`}
         >
           {isCaching ? (
             <RefreshCw size={14} className="animate-spin" />
@@ -249,9 +250,8 @@ function EntityCard({ m, onOpen }: { m: Mini; onOpen: () => void }) {
       className="group rounded-3xl p-2.5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/[0.06] focus-visible:outline-2 focus-visible:outline-accent"
     >
       <div
-        className={`aspect-square w-full overflow-hidden shadow-[0_12px_30px_-14px_rgba(0,0,0,0.8)] ${
-          round ? "rounded-full" : "rounded-2xl"
-        }`}
+        className={`aspect-square w-full overflow-hidden shadow-[0_12px_30px_-14px_rgba(0,0,0,0.8)] ${round ? "rounded-full" : "rounded-2xl"
+          }`}
       >
         <CoverImage
           src={m.image}
@@ -268,6 +268,15 @@ function EntityCard({ m, onOpen }: { m: Mini; onOpen: () => void }) {
       </p>
     </button>
   );
+}
+
+function shuffleList<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
 }
 
 function SectionTitle({
@@ -322,6 +331,8 @@ export default function HomeSearch({
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [showSave, setShowSave] = useState(false);
+  const [savedAs, setSavedAs] = useState<string | null>(null);
   const [suggest, setSuggest] = useState<SuggestResult | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -363,7 +374,7 @@ export default function HomeSearch({
     try {
       const raw = localStorage.getItem(RECENT_KEY);
       if (raw) setRecent(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
 
   useEffect(() => {
@@ -384,7 +395,7 @@ export default function HomeSearch({
       const next = [q, ...prev.filter((x) => x.toLowerCase() !== q.toLowerCase())].slice(0, 6);
       try {
         localStorage.setItem(RECENT_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -393,7 +404,7 @@ export default function HomeSearch({
     setRecent([]);
     try {
       localStorage.removeItem(RECENT_KEY);
-    } catch {}
+    } catch { }
   };
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -549,9 +560,13 @@ export default function HomeSearch({
     }
   };
 
+
   const openDetail = (type: EntityType, mini: Mini) => {
     const id = ++detailRunRef.current;
     setOpen(false);
+    
+  setShowSave(false);
+  setSavedAs(null);
     setDetail({ type, mini, songs: [], loading: true });
     getDetail(type, mini.id)
       .then((d) => {
@@ -568,7 +583,7 @@ export default function HomeSearch({
     setPickingId(m.id);
     try {
       const full = await getSongById(m.id);
-      if (full) player.playSong(full, [full]);
+      if (full) player.playSong(full, []);
     } catch (err) {
       console.error("Could not load song:", err);
     } finally {
@@ -612,9 +627,20 @@ export default function HomeSearch({
     }
   };
 
-  const playSongFrom = (song: Song, list: Song[]) => player.playSong(song, list);
+  const playSongFrom = (song: Song, _list: Song[], asList = false) =>
+    asList ? player.playSong(song, _list, undefined, { mode: "list" }) : player.playSong(song, []);
 
-  const renderSongs = (list: Song[], limit?: number) => (
+  const shufflePlay = (list: Song[]) => {
+    if (list.length === 0) return;
+    const mixed = shuffleList(list);
+    const currentId = String(player.currentSong?.id ?? "");
+    if (mixed.length > 1 && String(mixed[0]!.id) === currentId) {
+      [mixed[0], mixed[1]] = [mixed[1]!, mixed[0]!];
+    }
+    player.playSong(mixed[0]!, mixed, undefined, { mode: "list" });
+  };
+
+  const renderSongs = (list: Song[], limit?: number, asList = false) => (
     <div className="space-y-0.5">
       {(limit ? list.slice(0, limit) : list).map((song, i) => {
         const id = String(song.id);
@@ -627,7 +653,7 @@ export default function HomeSearch({
             isCached={cachedSongIds.has(id)}
             isCaching={cachingIds.has(id)}
             disableCache={isCachingAny}
-            onPlay={() => playSongFrom(song, list)}
+            onPlay={() => playSongFrom(song, list, asList)}
             onToggleCache={(e) => onToggleCache(e, song)}
           />
         );
@@ -807,9 +833,8 @@ export default function HomeSearch({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => runSearch(query)}
-                className={`mt-2 flex w-full items-center gap-2 border-t border-white/[0.06] px-4 py-3 text-left text-sm font-semibold text-accent transition-colors ${
-                  activeIdx === navItems.length - 1 ? "bg-white/10" : "hover:bg-white/[0.06]"
-                }`}
+                className={`mt-2 flex w-full items-center gap-2 border-t border-white/[0.06] px-4 py-3 text-left text-sm font-semibold text-accent transition-colors ${activeIdx === navItems.length - 1 ? "bg-white/10" : "hover:bg-white/[0.06]"
+                  }`}
               >
                 <CornerDownLeft size={15} />
                 See all results for “{query.trim()}”
@@ -835,9 +860,8 @@ export default function HomeSearch({
               src={detail.mini.image}
               name={detail.mini.title}
               kind={detail.type === "artist" ? "singer" : "song"}
-              className={`h-40 w-40 shrink-0 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] sm:h-48 sm:w-48 ${
-                detail.type === "artist" ? "rounded-full" : "rounded-3xl"
-              }`}
+              className={`h-40 w-40 shrink-0 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.9)] sm:h-48 sm:w-48 ${detail.type === "artist" ? "rounded-full" : "rounded-3xl"
+                }`}
             />
             <div className="min-w-0 text-center sm:text-left">
               <p className="text-sm font-medium capitalize text-sec">{detail.type}</p>
@@ -845,17 +869,55 @@ export default function HomeSearch({
                 {detail.mini.title}
               </h2>
               <p className="mt-1 text-sm text-muted">
-                {detail.mini.subtitle}
-                {!detail.loading && detail.songs.length > 0 && ` · ${detail.songs.length} songs`}
+                {/\d+\s+songs?/i.test(detail.mini.subtitle)
+                  ? !detail.loading && detail.songs.length > 0
+                    ? `${detail.songs.length} songs`
+                    : detail.mini.subtitle
+                  : <>
+                    {detail.mini.subtitle}
+                    {!detail.loading && detail.songs.length > 0 && ` · ${detail.songs.length} songs`}
+                  </>}
               </p>
-              <button
-                type="button"
-                disabled={detail.loading || detail.songs.length === 0}
-                onClick={() => playSongFrom(detail.songs[0]!, detail.songs)}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-bold text-bg shadow-lg shadow-black/30 transition hover:scale-105 disabled:opacity-40"
-              >
-                <Play size={16} fill="currentColor" /> Play all
-              </button>
+
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                <button
+                  type="button"
+                  disabled={detail.loading || detail.songs.length === 0}
+                  onClick={() => playSongFrom(detail.songs[0]!, detail.songs, true)}
+                  className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-bold text-bg shadow-lg shadow-black/30 transition hover:scale-105 disabled:opacity-40"
+                >
+                  <Play size={16} fill="currentColor" /> Play all
+                </button>
+
+                <button
+                  type="button"
+                  disabled={detail.loading || detail.songs.length === 0}
+                  onClick={() => shufflePlay(detail.songs)}
+                  className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-5 py-3 text-sm font-bold text-pri backdrop-blur-xl transition hover:bg-white/[0.13] active:scale-95 disabled:opacity-40"
+                >
+                  <Shuffle size={16} className="text-accent" /> Shuffle
+                </button>
+
+                {detail.type !== "artist" && (
+                  <button
+                    type="button"
+                    disabled={detail.loading || detail.songs.length === 0 || !!savedAs}
+                    onClick={() => setShowSave(true)}
+                    className="inline-flex items-center gap-2 rounded-full bg-white/[0.07] px-5 py-3 text-sm font-bold text-pri backdrop-blur-xl transition hover:bg-white/[0.13] active:scale-95 disabled:opacity-60"
+                  >
+                    {savedAs ? (
+                      <>
+                        <Check size={16} className="text-success" /> Saved
+                      </>
+                    ) : (
+                      <>
+                        <ListPlus size={16} className="text-accent" /> Save playlist
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+              
             </div>
           </div>
 
@@ -866,6 +928,15 @@ export default function HomeSearch({
           ) : (
             renderSongs(detail.songs)
           )}
+          {showSave && detail.songs.length > 0 && (
+  <SavePlaylistModal
+    originalName={detail.mini.title}
+    image={detail.mini.image}
+    songs={detail.songs}
+    onClose={() => setShowSave(false)}
+    onSaved={(name) => setSavedAs(name)}
+  />
+)}
         </section>
       )}
 
@@ -891,11 +962,10 @@ export default function HomeSearch({
                   key={t.id}
                   type="button"
                   onClick={() => setTab(t.id)}
-                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold backdrop-blur-xl transition ${
-                    tab === t.id
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold backdrop-blur-xl transition ${tab === t.id
                       ? "bg-accent text-bg"
                       : "bg-white/[0.06] text-sec hover:bg-white/[0.12] hover:text-pri"
-                  }`}
+                    }`}
                 >
                   {t.label}
                   {t.id !== "all" && t.count > 0 && (

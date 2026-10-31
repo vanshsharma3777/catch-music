@@ -537,7 +537,7 @@ export default function ProfilePage() {
     setTab(t);
   };
 
-  const playSongs = (song: Song, list: Song[]) => player.playSong(song, list);
+const playSongs = (song: Song, list: Song[]) => player.playSong(song, list, undefined, { mode: "list" });
   const isPlayingSong = (s: Song) => String(player.currentSong?.id) === String(s.id) && player.isPlaying;
 
   if (status === "loading" || status === "unauthenticated") {

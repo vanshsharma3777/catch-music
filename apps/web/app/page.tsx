@@ -375,7 +375,6 @@ export default function HomePage() {
           }
 
           setFavoriteSingers(singers);
-          console.log("singers" , singers)
           // Use the saved suggestions if they are still valid, otherwise fetch new ones
           const cachedSuggestions = readSuggestionsCache(singers);
           if (cachedSuggestions) {
@@ -460,7 +459,7 @@ export default function HomePage() {
   };
 
   const handlePlaySong = (song: Song) => {
-    player.playSong(song, allPlayableSongs);
+  player.playSong(song, suggestedTracks.length ? suggestedTracks : allPlayableSongs);
   };
 
   const handleToggleCache = async (e: React.MouseEvent, song: Song) => {

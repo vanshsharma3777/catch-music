@@ -6,4 +6,3 @@ const token = jwt.sign(
   "change-kr-dunga-don't-worry",
   { expiresIn: "30d", algorithm: "HS256" }
 );
-console.log(token);

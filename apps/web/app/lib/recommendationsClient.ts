@@ -7,7 +7,6 @@ export async function fetchRecommendations(
     limit = 10
 ): Promise<Song[]> {
     try {
-        console.log("Calling recommendation API:", songId);
 
         const res = await axios.post(
             `/api/recommendation/${encodeURIComponent(songId)}`,

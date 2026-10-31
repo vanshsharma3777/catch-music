@@ -15,9 +15,6 @@ import {
   MuteIcon,
 } from "./Icons";
 
-/* ------------------------------------------------------------------ */
-/* Vertical volume slider (custom, pointer + keyboard accessible)      */
-/* ------------------------------------------------------------------ */
 function VerticalSlider({
   value,
   onChange,
@@ -193,11 +190,6 @@ export function FullScreenPlayer() {
   const handleVolumeChange = (v: number) => {
     if (isMuted && v > 0) toggleMute();
     setVolume(v);
-    try {
-      localStorage.setItem("fsp_volume", v.toString());
-    } catch {
-      /* ignore */
-    }
   };
 
   if (!currentSong) return null;
@@ -361,7 +353,7 @@ export function FullScreenPlayer() {
         <div className="mt-5 flex w-full items-center gap-3">
           {nextSongCandidate ? (
             <button
-              onClick={() => playSong(nextSongCandidate, playlist)}
+              onClick={nextSong}
               className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-2 text-left backdrop-blur-md transition hover:bg-white/[0.13] focus-visible:outline-2 focus-visible:outline-white"
             >
               <img src={nextImage} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
