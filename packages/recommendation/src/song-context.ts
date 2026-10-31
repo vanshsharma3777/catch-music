@@ -18,9 +18,9 @@ export async function getSongContext(songId: string): Promise<string | null> {
         .leftJoin(singer, eq(songSinger.singerId, singer.singerId))
         .where(eq(song.songId, songId));
 
-    if (!result.length) return null;
-
     const first = result[0];
+
+if (!first) return null;
 
     const artists = result
         .map(item => item.singerName)
