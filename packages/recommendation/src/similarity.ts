@@ -19,8 +19,12 @@ export async function getSimilarSongs(
 
     if (!source.length) return [];
 
-    const embedding = source[0].embedding;
 
+    const embedding = source[0]?.embedding;
+
+if (!embedding) {
+    return [];
+}
     const results = await db
         .select({
             songId: songEmbeddings.songId,
