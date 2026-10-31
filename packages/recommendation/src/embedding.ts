@@ -1,26 +1,24 @@
 import { pipeline } from "@huggingface/transformers";
 
-const MODEL = "Xenova/all-MiniLM-L6-v2";
-
 let extractor: any = null;
 
-async function getModel() {
+async function getExtractor() {
     if (!extractor) {
         extractor = await pipeline(
             "feature-extraction",
-            MODEL
+            "Xenova/all-MiniLM-L6-v2"
         );
     }
 
     return extractor;
 }
 
-export async function generateEmbedding(text: string) {
-    const model = await getModel();
+export async function generateEmbedding(text: string): Promise<number[]> {
+    const model = await getExtractor();
 
     const output = await model(text, {
         pooling: "mean",
-        normalize: true,
+        normalize: true
     });
 
     return Array.from(output.data) as number[];

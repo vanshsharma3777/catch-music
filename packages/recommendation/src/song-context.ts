@@ -1,56 +1,37 @@
-import { album, db, singer, song , songSinger} from "@repo/db";
 import { eq } from "drizzle-orm";
+import { db } from "@repo/db";
+import { song, album, songSinger, singer } from "@repo/db";
 
-export async function getSongContext(songId: string) {
+export async function getSongContext(songId: string): Promise<string | null> {
+    const result = await db
+        .select({
+            name: song.name,
+            language: song.language,
+            year: song.year,
+            duration: song.duration,
+            albumName: album.name,
+            singerName: singer.name
+        })
+        .from(song)
+        .leftJoin(album, eq(song.albumId, album.albumId))
+        .leftJoin(songSinger, eq(song.songId, songSinger.songId))
+        .leftJoin(singer, eq(songSinger.singerId, singer.singerId))
+        .where(eq(song.songId, songId));
 
-  const result = await db
-    .select({
-      songName: song.name,
-      year: song.year,
-      language: song.language,
-      duration: song.duration,
-      albumName: album.name,
-      artistName: singer.name,
-    })
-    .from(song)
-    .leftJoin(
-      album,
-      eq(song.albumId, album.albumId)
-    )
-    .leftJoin(
-      songSinger,
-      eq(song.songId, songSinger.songId)
-    )
-    .leftJoin(
-      singer,
-      eq(songSinger.singerId, singer.singerId)
-    )
-    .where(eq(song.songId, songId));
+    if (!result.length) return null;
 
-  if (!result.length) {
-    throw new Error("Song not found");
-  }
+    const first = result[0];
 
-  const first = result[0];
-  if (!first) {
-    throw new Error("Song not found");
-  }
-  const artists = [
-    ...new Set(
-      result
-        .map(row => row.artistName)
-        .filter(Boolean)
-    ),
-  ];
+    const artists = result
+        .map(item => item.singerName)
+        .filter(Boolean);
 
-  const context = `
-        Song: ${first.songName}.
-        Artists: ${artists.join(", ")}.
-        Album: ${first.albumName ?? "Unknown"}.
-        Language: ${first.language}.
-        Release year: ${first.year}.
-        Duration: ${first.duration} seconds.
-    `;
-
-  return context.trim();
+    return [
+        `Song: ${first.name}`,
+        `Artists: ${[...new Set(artists)].join(", ")}`,
+        `Album: ${first.albumName ?? ""}`,
+        `Language: ${first.language ?? ""}`,
+        `Year: ${first.year ?? ""}`,
+        `Duration: ${first.duration ?? ""}`
+    ].join(". ");
 }

@@ -1,20 +1,76 @@
-import next from "next";
 import { NextRequest, NextResponse } from "next/server";
+import { getRecommendations } from "@repo/recommendation";
+import { db, song } from "@repo/db";
+import { inArray } from "drizzle-orm";
 import { getUser } from "../../../lib/getUser";
 
-export async function GET( request: NextRequest, context: { params: Promise<{ songId: string }> },) {
-    const  { songId} = await context.params;
+export async function POST(req: NextRequest ,{ params }: { params: Promise<{ songId: string }> }) {
+    try {
+        const user = await getUser();
 
-    if(!songId || songId.length===0){
+        if (!user) {
+            return NextResponse.json(
+                { success: false, message: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+
+    const { songId } = await params;
+    const { excludeIds = [], limit = 10 } = await req.json();
+        if (!songId || typeof songId !== "string") {
+            return NextResponse.json(
+                { success: false, message: "Invalid song ID" },
+                { status: 400 }
+            );
+        }
+
+        const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 30);
+
+        const recommendations = await getRecommendations({
+            songId,
+            limit: safeLimit,
+            excludeIds
+        });
+
+        if (!recommendations.length) {
+            return NextResponse.json({
+                success: true,
+                data: []
+            });
+        }
+
+        const recommendedIds = recommendations.map(item => item.songId);
+
+        const songs = await db
+            .select()
+            .from(song)
+            .where(inArray(song.songId, recommendedIds));
+
+        const songMap = new Map(
+            songs.map(item => [item.songId, item])
+        );
+
+        const orderedSongs = recommendedIds
+    .map(id => songMap.get(id))
+    .filter(Boolean)
+    .map(item => ({
+        ...item!,
+        id: item!.songId
+    }));
+
         return NextResponse.json({
-            sucess:"false",
-            error:"Song Id not found"
-        },{status : 401})
-    }
+            success: true,
+            data: orderedSongs
+        });
+    } catch (error) {
+        console.error("Recommendation API error:", error);
 
-     const session = await getUser(request);
-      const email = session?.user?.email;
-      if (!session || !email) {
-        return NextResponse.json({ success: false, error: "Unauthorized!" }, { status: 400 });
-      }
+        return NextResponse.json(
+            {
+                success: false,
+                message: "Failed to fetch recommendations"
+            },
+            { status: 500 }
+        );
+    }
 }

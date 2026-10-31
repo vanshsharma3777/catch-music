@@ -59,6 +59,7 @@
         "@huggingface/transformers": "^4.3.2",
         "@repo/db": "workspace:*",
         "@repo/queue": "workspace:*",
+        "@repo/recommendation": "workspace:*",
         "@repo/ui": "*",
         "@types/axios": "^0.14.4",
         "@upstash/redis": "^1.36.1",

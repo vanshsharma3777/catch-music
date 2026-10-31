@@ -160,7 +160,7 @@ export async function searchEntities(
     `/api/discover?mode=search&type=${type}&q=${encodeURIComponent(q)}&limit=${limit}`,
   );
   return (d.results ?? []).map((r: any): Mini => {
-    if (type === "albums") {
+    if (type === "albums") {  
       return {
         id: String(r.id),
         title: decode(r.name),

@@ -11,12 +11,12 @@ import React, {
 } from "react";
 import { Song } from "../../app/types/songs";
 import { addRecentSong } from "../../app/lib/recentSongs";
+import { fetchRecommendations } from "../../app/lib/recommendationsClient";
 
 export type ScreenMode = "closed" | "mini" | "full";
 export type RepeatMode = "off" | "all" | "one";
 
 export interface PlayerContextType {
-  // State
   currentSong: Song | null;
   isPlaying: boolean;
   currentTime: number;
@@ -30,18 +30,11 @@ export interface PlayerContextType {
   currentIndex: number;
   nextSongCandidate: Song | null;
   audioElement: HTMLAudioElement | null;
-
-  // Helpers
   audioUrl: string;
   artworkUrl: string;
   artistName: string;
-
-  // Actions
-  playSong: (
-    song: Song,
-    playlistContext?: Song[],
-    desiredScreenMode?: ScreenMode
-  ) => void;
+  playSong: (song: Song, playlistContext?: Song[], desiredScreenMode?: ScreenMode) => void;
+  appendRecommendations: (songs: Song[]) => void;
   togglePlay: () => void;
   play: () => void;
   pause: () => void;
@@ -104,8 +97,7 @@ export function formatAudioTime(seconds?: number | string): string {
   if (seconds === undefined || seconds === null || isNaN(Number(seconds))) {
     return "0:00";
   }
-  const secNum =
-    typeof seconds === "string" ? parseInt(seconds, 10) : Math.floor(seconds);
+  const secNum = typeof seconds === "string" ? parseInt(seconds, 10) : Math.floor(seconds);
   if (isNaN(secNum) || secNum < 0) return "0:00";
   const mins = Math.floor(secNum / 60);
   const secs = secNum % 60;
@@ -114,21 +106,21 @@ export function formatAudioTime(seconds?: number | string): string {
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(0);
-  const [volume, setVolumeState] = useState<number>(0.85);
-  const [prevVolume, setPrevVolume] = useState<number>(0.85);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
-  const [isShuffle, setIsShuffle] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolumeState] = useState(0.85);
+  const [prevVolume, setPrevVolume] = useState(0.85);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
   const [screenMode, setScreenMode] = useState<ScreenMode>("closed");
   const [playlist, setPlaylist] = useState<Song[]>([]);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recommendationRequestRef = useRef(0);
 
-  // Sync state ref for listeners
   const stateRef = useRef({
     currentSong,
     isPlaying,
@@ -171,15 +163,60 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioElement,
   ]);
 
-  // Internal helper to switch track
+  const appendRecommendations = useCallback((songs: Song[]) => {
+        console.log("Received recommendations:", songs);
+
+    setPlaylist((prev) => {
+      const existingIds = new Set(prev.map((s) => String(s.id)));
+      const newSongs = songs.filter((song) => {
+        const id = String(song.id);
+        if (!id || existingIds.has(id)) return false;
+        existingIds.add(id);
+        return true;
+      });
+      return [...prev, ...newSongs];
+    });
+  }, []);
+
+  const loadRecommendations = useCallback(async (song: Song, context: Song[] = []) => {
+    const requestId = ++recommendationRequestRef.current;
+
+    const excludeIds = [
+      ...new Set([
+        String(song.id),
+        ...context.map((s) => String(s.id)),
+        ...stateRef.current.playlist.map((s) => String(s.id)),
+      ]),
+    ];
+
+    try {
+      console.log("Fetching recommendations for:", song.name);
+
+      const recommendations = await fetchRecommendations(
+        String(song.id),
+        excludeIds,
+        10
+      );
+
+      if (requestId !== recommendationRequestRef.current) return;
+
+      if (recommendations.length > 0) {
+        appendRecommendations(recommendations);
+        console.log("Recommendations appended:", recommendations.length);
+      } else {
+        console.log("No recommendations found");
+      }
+    } catch (error) {
+      console.error("Recommendation loading failed:", error);
+    }
+  }, [appendRecommendations]);
+
   const playSongInternal = useCallback((song: Song, targetPlaylist?: Song[]) => {
     const audio = audioRef.current;
     if (!audio) return;
 
     const src = getAudioSource(song);
-    if (!src) {
-      return;
-    }
+    if (!src) return;
 
     audio.pause();
     audio.src = src;
@@ -203,9 +240,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return prev;
       });
     }
-  }, []);
 
-  // Initialize Audio element once on client
+    void loadRecommendations(song, targetPlaylist ?? []);
+  }, [loadRecommendations]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -215,14 +253,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioRef.current = audio;
     setAudioElement(audio);
 
-    const onTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const onLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
-    };
-
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
 
@@ -231,40 +263,55 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setIsMuted(audio.muted || audio.volume === 0);
     };
 
-    const onEnded = () => {
-      const { repeatMode, playlist, currentSong, isShuffle } = stateRef.current;
-      if (repeatMode === "one") {
+const onEnded = () => {
+    const { repeatMode, playlist, currentSong, isShuffle } = stateRef.current;
+
+    console.log("Song ended:", currentSong?.name);
+    console.log("Current playlist length:", playlist.length);
+    console.log("Current playlist:", playlist.map(s => s.name));
+
+    if (repeatMode === "one") {
         audio.currentTime = 0;
+        void audio.play();
         return;
-      }
+    }
 
-      if (!playlist.length || !currentSong) return;
+    if (!playlist.length || !currentSong) return;
 
-      if (isShuffle) {
-        if (playlist.length > 1) {
-          const others = playlist.filter(
-            (s) => String(s.id) !== String(currentSong.id)
-          );
-          const next = others[Math.floor(Math.random() * others.length)];
-          if (next) {
+    if (isShuffle && playlist.length > 1) {
+        const others = playlist.filter(
+            s => String(s.id) !== String(currentSong.id)
+        );
+
+        const next = others[Math.floor(Math.random() * others.length)];
+
+        if (next) {
+            console.log("Shuffle next:", next.name);
             playSongInternal(next, playlist);
             return;
-          }
         }
-      }
+    }
 
-      const idx = playlist.findIndex(
-        (s) => String(s.id) === String(currentSong.id)
-      );
-      if (idx !== -1 && idx < playlist.length - 1) {
+    const idx = playlist.findIndex(
+        s => String(s.id) === String(currentSong.id)
+    );
+
+    console.log("Current index:", idx);
+
+    if (idx !== -1 && idx < playlist.length - 1) {
         const nextTrack = playlist[idx + 1];
-        if (nextTrack) playSongInternal(nextTrack, playlist);
-      } else if (repeatMode === "all" && playlist.length > 0 && playlist[0]) {
+
+        if (nextTrack) {
+            console.log("Playing next:", nextTrack.name);
+            playSongInternal(nextTrack, playlist);
+        }
+    } else if (repeatMode === "all" && playlist[0]) {
         playSongInternal(playlist[0], playlist);
-      } else {
+    } else {
+        console.log("No next song available");
         setIsPlaying(false);
-      }
-    };
+    }
+};
 
     const onError = (e: Event) => {
       console.warn("[Player Error] Audio playback encountered an error:", e);
@@ -313,36 +360,32 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audioRef.current?.pause();
   }, []);
 
-  // Public playSong method: defaults to mini player if closed
-  const playSong = useCallback(
-    (
-      song: Song,
-      playlistContext?: Song[],
-      desiredScreenMode?: ScreenMode
-    ) => {
-      if (
-        stateRef.current.currentSong &&
-        String(stateRef.current.currentSong.id) === String(song.id)
-      ) {
-        togglePlay();
-        if (desiredScreenMode) {
-          setScreenMode(desiredScreenMode);
-        } else if (stateRef.current.screenMode === "closed") {
-          setScreenMode("mini");
-        }
-        return;
+  const playSong = useCallback((
+    song: Song,
+    playlistContext?: Song[],
+    desiredScreenMode?: ScreenMode
+  ) => {
+    if (
+      stateRef.current.currentSong &&
+      String(stateRef.current.currentSong.id) === String(song.id)
+    ) {
+      togglePlay();
+      if (desiredScreenMode) {
+        setScreenMode(desiredScreenMode);
+      } else if (stateRef.current.screenMode === "closed") {
+        setScreenMode("mini");
       }
+      return;
+    }
 
-      playSongInternal(song, playlistContext);
+    playSongInternal(song, playlistContext);
 
-      setScreenMode((current) => {
-        if (desiredScreenMode) return desiredScreenMode;
-        if (current === "closed") return "mini";
-        return current;
-      });
-    },
-    [playSongInternal, togglePlay]
-  );
+    setScreenMode((current) => {
+      if (desiredScreenMode) return desiredScreenMode;
+      if (current === "closed") return "mini";
+      return current;
+    });
+  }, [playSongInternal, togglePlay]);
 
   const nextSong = useCallback(() => {
     const { currentSong, playlist, isShuffle, repeatMode } = stateRef.current;
@@ -360,10 +403,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const currentIndex = playlist.findIndex(
       (s) => String(s.id) === String(currentSong.id)
     );
+
     if (currentIndex !== -1 && currentIndex < playlist.length - 1) {
       const nextTrack = playlist[currentIndex + 1];
       if (nextTrack) playSongInternal(nextTrack, playlist);
-    } else if (repeatMode !== "off" && playlist.length > 0 && playlist[0]) {
+    } else if (repeatMode !== "off" && playlist[0]) {
       playSongInternal(playlist[0], playlist);
     }
   }, [playSongInternal]);
@@ -384,9 +428,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const currentIndex = playlist.findIndex(
       (s) => String(s.id) === String(currentSong.id)
     );
-    const prevIndex =
-      currentIndex > 0 ? currentIndex - 1 : playlist.length - 1;
+
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : playlist.length - 1;
     const prevTrack = playlist[prevIndex];
+
     if (prevTrack) playSongInternal(prevTrack, playlist);
   }, [playSongInternal]);
 
@@ -408,19 +453,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setIsMuted(clamped === 0);
   }, []);
 
-  const volumeUp = useCallback(
-    (step = 0.05) => {
-      setVolume(stateRef.current.volume + step);
-    },
-    [setVolume]
-  );
+  const volumeUp = useCallback((step = 0.05) => {
+    setVolume(stateRef.current.volume + step);
+  }, [setVolume]);
 
-  const volumeDown = useCallback(
-    (step = 0.05) => {
-      setVolume(stateRef.current.volume - step);
-    },
-    [setVolume]
-  );
+  const volumeDown = useCallback((step = 0.05) => {
+    setVolume(stateRef.current.volume - step);
+  }, [setVolume]);
 
   const toggleMute = useCallback(() => {
     const audio = audioRef.current;
@@ -455,17 +494,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const openFullScreen = useCallback(() => setScreenMode("full"), []);
   const minimize = useCallback(() => setScreenMode("mini"), []);
+
   const closePlayer = useCallback(() => {
     audioRef.current?.pause();
     setIsPlaying(false);
     setScreenMode("closed");
+    recommendationRequestRef.current++;
   }, []);
 
   const toggleScreenMode = useCallback(() => {
     setScreenMode((prev) => (prev === "full" ? "mini" : "full"));
   }, []);
 
-  // Calculate current index & next song preview
   const currentIndex = useMemo(() => {
     if (!currentSong || !playlist.length) return -1;
     return playlist.findIndex((s) => String(s.id) === String(currentSong.id));
@@ -473,112 +513,96 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const nextSongCandidate = useMemo(() => {
     if (!playlist.length || !currentSong) return null;
+
     if (isShuffle && playlist.length > 1) {
       const candidates = playlist.filter(
         (s) => String(s.id) !== String(currentSong.id)
       );
       return candidates[0] || null;
     }
+
     if (currentIndex >= 0 && currentIndex < playlist.length - 1) {
       return playlist[currentIndex + 1] || null;
     }
+
     if (repeatMode !== "off" && playlist.length > 0) {
       return playlist[0] || null;
     }
+
     return null;
   }, [playlist, currentSong, currentIndex, isShuffle, repeatMode]);
 
-  // Centralized Global Keyboard Shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
+
       if (
         tag === "input" ||
         tag === "textarea" ||
         tag === "select" ||
         target?.isContentEditable
-      ) {
+      ) return;
+
+      if (e.key === "Escape" && stateRef.current.screenMode === "full") {
+        e.preventDefault();
+        setScreenMode("mini");
         return;
       }
 
-      // 1. ESCAPE: Exit full screen -> mini
-      if (e.key === "Escape") {
-        const mode = stateRef.current.screenMode;
-        if (mode === "full") {
-          e.preventDefault();
-          setScreenMode("mini");
-          return;
-        }
-      }
-
-      // 2. SPACE: Play / Pause
       if (e.code === "Space") {
         e.preventDefault();
         togglePlay();
         return;
       }
 
-      // 3. ARROW RIGHT: Seek +5s OR Next (with Shift/Alt)
       if (e.key === "ArrowRight") {
         e.preventDefault();
-        if (e.shiftKey || e.altKey) {
-          nextSong();
-        } else {
-          seek(stateRef.current.currentTime + 5);
-        }
+        if (e.shiftKey || e.altKey) nextSong();
+        else seek(stateRef.current.currentTime + 5);
         return;
       }
 
-      // 4. ARROW LEFT: Seek -5s OR Previous (with Shift/Alt)
       if (e.key === "ArrowLeft") {
         e.preventDefault();
-        if (e.shiftKey || e.altKey) {
-          previousSong();
-        } else {
-          seek(stateRef.current.currentTime - 5);
-        }
+        if (e.shiftKey || e.altKey) previousSong();
+        else seek(stateRef.current.currentTime - 5);
         return;
       }
 
-      // 5. ARROW UP / DOWN: Volume controls
       if (e.key === "ArrowUp") {
         e.preventDefault();
         volumeUp(0.05);
         return;
       }
+
       if (e.key === "ArrowDown") {
         e.preventDefault();
         volumeDown(0.05);
         return;
       }
 
-      // 6. KEY M: Mute
       if (e.key === "m" || e.key === "M") {
         e.preventDefault();
         toggleMute();
         return;
       }
 
-      // 7. KEY S: Shuffle
       if (e.key === "s" || e.key === "S") {
         e.preventDefault();
         toggleShuffle();
         return;
       }
 
-      // 8. KEY R: Repeat
       if (e.key === "r" || e.key === "R") {
         e.preventDefault();
         cycleRepeat();
         return;
       }
 
-      // 9. KEY F: Toggle Full-screen / Mini
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
         toggleScreenMode();
-        return;
       }
     };
 
@@ -597,56 +621,55 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     toggleScreenMode,
   ]);
 
-  // Lock scroll only when Full-Screen is open
   useEffect(() => {
     if (screenMode === "full") {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
+
     return () => {
       document.body.style.overflow = "";
     };
   }, [screenMode]);
 
-  const value = useMemo<PlayerContextType>(() => {
-    return {
-      currentSong,
-      isPlaying,
-      currentTime,
-      duration,
-      volume,
-      isMuted,
-      isShuffle,
-      repeatMode,
-      screenMode,
-      playlist,
-      currentIndex,
-      nextSongCandidate,
-      audioElement,
-      audioUrl: getAudioSource(currentSong),
-      artworkUrl: getArtworkSource(currentSong),
-      artistName: getArtistDisplayName(currentSong),
-      playSong,
-      togglePlay,
-      play,
-      pause,
-      nextSong,
-      previousSong,
-      seek,
-      setVolume,
-      volumeUp,
-      volumeDown,
-      toggleMute,
-      toggleShuffle,
-      cycleRepeat,
-      setScreenMode,
-      openFullScreen,
-      minimize,
-      closePlayer,
-      toggleScreenMode,
-    };
-  }, [
+  const value = useMemo<PlayerContextType>(() => ({
+    currentSong,
+    isPlaying,
+    currentTime,
+    duration,
+    volume,
+    isMuted,
+    isShuffle,
+    repeatMode,
+    screenMode,
+    playlist,
+    currentIndex,
+    nextSongCandidate,
+    audioElement,
+    audioUrl: getAudioSource(currentSong),
+    artworkUrl: getArtworkSource(currentSong),
+    artistName: getArtistDisplayName(currentSong),
+    playSong,
+    appendRecommendations,
+    togglePlay,
+    play,
+    pause,
+    nextSong,
+    previousSong,
+    seek,
+    setVolume,
+    volumeUp,
+    volumeDown,
+    toggleMute,
+    toggleShuffle,
+    cycleRepeat,
+    setScreenMode,
+    openFullScreen,
+    minimize,
+    closePlayer,
+    toggleScreenMode,
+  }), [
     currentSong,
     isPlaying,
     currentTime,
@@ -661,6 +684,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     nextSongCandidate,
     audioElement,
     playSong,
+    appendRecommendations,
     togglePlay,
     play,
     pause,
@@ -680,7 +704,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   ]);
 
   return (
-    <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>
+    <PlayerContext.Provider value={value}>
+      {children}
+    </PlayerContext.Provider>
   );
 }
 

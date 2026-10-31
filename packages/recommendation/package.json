@@ -3,10 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts",
-    "./embedding": "./src/embedding.ts",
-    "./song-context": "./src/song-context.ts",
-    "./save-embedding": "./src/save-embedding.ts"
+    ".": "./src/index.ts"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.2",

@@ -1,25 +1,26 @@
-import { pipeline } from "@huggingface/transformers";
+import { generateCandidates } from "./candidate-generator";
+import { rankCandidates } from "./ranking";
 
-let extractor: any = null;
-
-async function getExtractor() {
-  if (!extractor) {
-    extractor = await pipeline(
-      "feature-extraction",
-      "Xenova/all-MiniLM-L6-v2"
-    );
-  }
-
-  return extractor;
+interface RecommendationOptions {
+    songId: string;
+    limit?: number;
+    excludeIds?: string[];
 }
 
-export async function generateEmbedding(text: string) {
-  const model = await getExtractor();
+export async function getRecommendations({
+    songId,
+    limit = 10,
+    excludeIds = []
+}: RecommendationOptions) {
+    const candidates = await generateCandidates({
+        songId,
+        limit: Math.max(limit * 3, 30),
+        excludeIds
+    });
 
-  const output = await model(text, {
-    pooling: "mean",
-    normalize: true,
-  });
-
-  return Array.from(output.data) as number[];
+    return rankCandidates({
+        candidates,
+        limit,
+        minSimilarity: 0
+    });
 }

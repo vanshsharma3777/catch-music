@@ -1,7 +1,8 @@
 
 import { Worker } from "bullmq";
 import { connection } from "@repo/queue";
-import { saveSongEmbedding } from "@repo/recommendation/save-embedding";
+import { saveSongEmbedding } from "@repo/recommendation";
+
 import {
     db,
     downloadUrl,
@@ -57,8 +58,6 @@ interface Response {
     albumId?: string;
     songs: Music[];
 }
-
-console.log("store song file loaded");
 
 export const storeSongsinDb = new Worker(
     "storeSongsToDb",
