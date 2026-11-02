@@ -8,7 +8,8 @@
       "outputs": [".next/**", "!.next/cache/**"],
       "env": [
               "UPSTASH_REDIS_REST_URL",
-              "UPSTASH_REDIS_REST_TOKEN"
+              "UPSTASH_REDIS_REST_TOKEN",
+              "JIO_SAVAAN_WORKER"
             ]
     },
     "lint": {
