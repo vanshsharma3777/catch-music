@@ -1,0 +1,22 @@
+# Build context = repo root. Debian (not alpine): onnxruntime-node needs glibc.
+FROM oven/bun:1.3.6 AS build
+WORKDIR /app
+
+COPY . .
+RUN bun install --filter web --filter worker
+
+ARG JIO_SAVAAN_WORKER=""
+ARG UPSTASH_REDIS_REST_URL="http://srh:80"
+ARG UPSTASH_REDIS_REST_TOKEN="build-placeholder"
+ENV JIO_SAVAAN_WORKER=$JIO_SAVAAN_WORKER \
+    UPSTASH_REDIS_REST_URL=$UPSTASH_REDIS_REST_URL \
+    NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /app/apps/web
+RUN bunx next build
+
+FROM build AS web
+ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0
+EXPOSE 3000
+WORKDIR /app/apps/web
+CMD ["bun", "run", "start"]
