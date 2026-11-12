@@ -1,22 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: [
-'@huggingface/transformers',
-'onnxruntime-node',
-],outputFileTracingIncludes: {
-    '/api/recommendation/[songId]': [
-      './node_modules/onnxruntime-node/**/*',
-      './node_modules/@huggingface/transformers/**/*',
-    ],
-  },
-
-  outputFileTracingExcludes: {
-    '/api/recommendation/[songId]': [
-      './node_modules/onnxruntime-node/bin/napi-v3/darwin/**',
-      './node_modules/onnxruntime-node/bin/napi-v3/win32/**',
-      './node_modules/onnxruntime-node/bin/napi-v3/linux/arm64/**',
-    ],
-  },
      async headers() {
     return [
       {

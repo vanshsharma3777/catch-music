@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
-  },
+  ".": "./src/index.ts",
+  "./embed": "./src/embed.ts"
+},
   "dependencies": {
     "@huggingface/transformers": "^3.7.2",
     "@repo/db": "workspace:*",

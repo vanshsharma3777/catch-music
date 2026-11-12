@@ -1,8 +1,7 @@
 
 import { Worker } from "bullmq";
 import { connection } from "@repo/queue";
-import { saveSongEmbedding } from "@repo/recommendation";
-
+import { saveSongEmbedding } from "@repo/recommendation/embed";
 import {
     db,
     downloadUrl,
