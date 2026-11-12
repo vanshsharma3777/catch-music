@@ -10,7 +10,6 @@ import type { Song } from "../../../types/songs";
 
 const PLAYABLE_TTL = 60 * 60 * 6; // 6h
 
-/** Full, playable song (downloadUrl + image) straight from the music API. */
 async function loadPlayable(id: string): Promise<Song | null> {
   const key = `song:playable:${id}`;
   try {
