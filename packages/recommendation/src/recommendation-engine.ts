@@ -9,7 +9,7 @@ interface RecommendationOptions {
 
 export async function getRecommendations({
     songId,
-    limit = 10,
+    limit = 5,
     excludeIds = []
 }: RecommendationOptions) {
     const candidates = await generateCandidates({
